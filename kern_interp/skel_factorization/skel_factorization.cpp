@@ -104,6 +104,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
   start = omp_get_wtime();
 std::cout<<"max threads "<<omp_get_max_threads()<<std::endl;
   int nodes_left = kernel.boundary_points_.size();
+  std::cout << "Starting with " << nodes_left << " nodes " << std::endl;
   int prev_nodes_left = nodes_left;
   for (int level = lvls - 1; level >  1; level--) {
     end = omp_get_wtime();
@@ -119,10 +120,13 @@ std::cout<<"max threads "<<omp_get_max_threads()<<std::endl;
           < MIN_DOFS_TO_COMPRESS) {
         continue;
       }
-
+      double ids = omp_get_wtime();
       if (id_compress(kernel, tree, current_node) == 0) {
         continue;
       }
+      double ide = omp_get_wtime();
+      // std::cout << "took " << ide - ids << " to get rid of " <<
+      //           current_node->T.width() << " out of "<<(current_node->T.width()+current_node->T.height())<<" center "<<current_node->center[0]<<" "<<current_node->center[1]<<" "<<current_node->center[2]<<std::endl;
       nodes_left -= current_node->T.width();
       decouple(kernel, current_node);
       node_counter++;

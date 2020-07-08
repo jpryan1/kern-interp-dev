@@ -586,7 +586,7 @@ ki_Mat Kernel::get_proxy_mat3d(std::vector<double> center,
                                const std::vector<int>& box_inds) const {
 
   // each row is a pxy point, cols are box dofs
-  // r *= 2;
+  r *= 2;
   std::vector<double> pxy_p, pxy_n, pxy_w;
   for (int i = 0; i < pxy_thetas.size(); i++) {
     double theta = pxy_thetas[i];
