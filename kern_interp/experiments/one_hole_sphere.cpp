@@ -23,8 +23,7 @@ void run_one_hole_sphere() {
   std::unique_ptr<Boundary> boundary =
     std::unique_ptr<Boundary>(new Sphere());
 
-  int num_threads = 8;
-  double id_tol = 1e-3;
+
   boundary->initialize(pow(2, 7),  BoundaryCondition::STOKES_3D_MIX);
 
   QuadTree quadtree;
@@ -48,7 +47,7 @@ void run_one_hole_sphere() {
   double cend = omp_get_wtime();
   std::cout << "computer diag " << (cend - cstart) << std::endl;
   ki_Mat sol = boundary_integral_solve(kernel, *(boundary.get()), &quadtree,
-                                       1e-6, 8, domain_points);
+                                       id_tol, num_threads, domain_points);
   double err = stokes_err_3d(sol, domain_points, boundary.get(), 0.1, STOKES_MIXER);
   std::cout << "err " << err << std::endl;
 
