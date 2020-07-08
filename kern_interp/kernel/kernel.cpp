@@ -310,7 +310,7 @@ ki_Mat Kernel::operator()(const std::vector<int>& tgt_inds,
   int olda_ = tgt_inds.size();
   int threads = 1;
   if (parallel) {
-    threads = 8;
+    threads = 16;
   }
   #pragma omp parallel for num_threads(threads)
   for (int j = 0; j < src_inds.size(); j++) {
@@ -367,7 +367,7 @@ ki_Mat Kernel::get_3d(const std::vector<int>& tgt_inds,
   int olda_ = tgt_inds.size();
   int threads = 1;
   if (parallel) {
-    threads = 8;
+    threads = 16;
   }
   #pragma omp parallel for num_threads(threads)
   for (int j = 0; j < src_inds.size(); j++) {
