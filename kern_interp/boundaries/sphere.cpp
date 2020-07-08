@@ -1,6 +1,9 @@
 // Copyright 2019 John Paul Ryan
 #include <cmath>
 #include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
 #include "kern_interp/boundaries/sphere.h"
 #include "kern_interp/legendre.h"
 
@@ -12,73 +15,78 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
   weights.clear();
   curvatures.clear();
 
+  std::vector<double> file_points, file_weights;
+  string line;
+  ifstream myfile("kern_interp/boundaries/tri11146.txt");
+  if (myfile.is_open()) {
+    while (getline(myfile, line)) {
+      stringstream s_stream(line);
+      for (int d = 0; d < 3; d++) {
+        string pt;
+        getline(s_stream, pt, ',');
+        file_points.push_back(std::stod(pt));
+      }
+      string wt;
+      getline(s_stream, wt, ',');
+      file_weights.push_back(std::stod(wt));
+    }
+    myfile.close();
+  }
+  num_outer_nodes = file_points.size() / 3;
+
+  std::vector<double> file_hole_points, file_hole_weights;
+  string hole_line;
+  ifstream myholefile("kern_interp/boundaries/tri570.txt");
+  if (myholefile.is_open()) {
+    while (getline(myholefile, hole_line)) {
+      stringstream s_stream(hole_line);
+      for (int d = 0; d < 3; d++) {
+        string pt;
+        getline(s_stream, pt, ',');
+        file_hole_points.push_back(std::stod(pt));
+      }
+      string wt;
+      getline(s_stream, wt, ',');
+      file_hole_weights.push_back(std::stod(wt));
+    }
+    myholefile.close();
+  }
+
+
+  int num_hole_points = file_hole_points.size() / 3;
+
   if (holes.size() == 0) {
     Hole hole;
-    hole.center = PointVec(0.3, 0.5, 0.5);
+    hole.center = PointVec(0.5, 0.5, 0.5);
     hole.radius = 0.1;
-    holes.push_back(hole);
-    hole.center = PointVec(0.7, 0.5, 0.5);
-    hole.radius = 0.1;
+    hole.num_nodes = num_hole_points;
     holes.push_back(hole);
   }
 
   int num_holes = holes.size();
 
-  double x = sqrt(sz_param * 2.0 / (9.0 + num_holes));
-  int hole_circumf_points = (int) x;
-  int num_circumf_points = 3 * hole_circumf_points;
+  int total_points = num_outer_nodes +
+                     (num_holes * num_hole_points);
 
-  int num_phi_points = num_circumf_points / 2;
-  num_outer_nodes = num_circumf_points * num_phi_points;
-
-  int hole_phi_points = hole_circumf_points / 2;
-
-
-  int each_hole_points = hole_circumf_points * hole_phi_points;
-  for (int i = 0; i < holes.size(); i++) {
-    holes[i].num_nodes = each_hole_points;
+  for (int i = 0; i < num_outer_nodes; i++) {
+    points.push_back(0.5 + file_points[3 * i]);
+    points.push_back(0.5 + file_points[3 * i + 1]);
+    points.push_back(0.5 + file_points[3 * i + 2]);
+    normals.push_back(file_points[3 * i]);
+    normals.push_back(file_points[3 * i + 1]);
+    normals.push_back(file_points[3 * i + 2]);
+    weights.push_back(file_weights[i]);
   }
 
-  int total_points = num_circumf_points * num_phi_points +
-                     (num_holes * each_hole_points);
-
-  double phis[num_phi_points];
-  double phi_weights[num_phi_points];
-  double phi_start = 0.;
-  double phi_end = M_PI;
-  cgqf(num_phi_points, 1, 0.0, 0.0, phi_start, phi_end, phis, phi_weights);
-  for (int i = 0; i < num_circumf_points; i++) {
-    double theta = 2 * M_PI * i * (1.0 / num_circumf_points);
-    for (int j = 0; j < num_phi_points; j++) {
-      double phi = phis[j];
-      points.push_back(0.5 + r * sin(phi) * cos(theta));
-      points.push_back(0.5 + r * sin(phi) * sin(theta));
-      points.push_back(0.5 + r * cos(phi));
-      normals.push_back(sin(phi) * cos(theta));
-      normals.push_back(sin(phi) * sin(theta));
-      normals.push_back(cos(phi));
-      weights.push_back(pow(r, 2) * sin(phi) * phi_weights[j]
-                        * ((2 * M_PI) / num_circumf_points));
-    }
-  }
-  double hole_phis[hole_phi_points];
-  double hole_phi_weights[hole_phi_points];
-  cgqf(hole_phi_points, 1, 0.0, 0.0, phi_start, phi_end, hole_phis,
-       hole_phi_weights);
   for (Hole hole : holes) {
-    for (int i = 0; i < hole_circumf_points; i++) {
-      double theta = 2 * M_PI * i * (1.0 / hole_circumf_points);
-      for (int j = 0; j < hole_phi_points; j++) {
-        double phi = hole_phis[j];
-        points.push_back(hole.center.a[0] + hole.radius * sin(phi) * cos(theta));
-        points.push_back(hole.center.a[1] + hole.radius * sin(phi) * sin(theta));
-        points.push_back(hole.center.a[2] + hole.radius * cos(phi));
-        normals.push_back(-sin(phi) * cos(theta));
-        normals.push_back(-sin(phi) * sin(theta));
-        normals.push_back(-cos(phi));
-        weights.push_back(pow(hole.radius, 2) * sin(phi) * hole_phi_weights[j]
-                          * ((2 * M_PI) / hole_circumf_points));
-      }
+    for (int i = 0; i < num_hole_points; i++) {
+      points.push_back(hole.center.a[0] + hole.radius * file_hole_points[3 * i]);
+      points.push_back(hole.center.a[1] + hole.radius * file_hole_points[3 * i + 1]);
+      points.push_back(hole.center.a[2] + hole.radius * file_hole_points[3 * i + 2]);
+      normals.push_back(file_hole_points[3 * i]);
+      normals.push_back(file_hole_points[3 * i + 1]);
+      normals.push_back(file_hole_points[3 * i + 2]);
+      weights.push_back(hole.radius * hole.radius * file_hole_weights[i]);
     }
   }
 

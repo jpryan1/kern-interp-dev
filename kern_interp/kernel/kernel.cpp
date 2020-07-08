@@ -122,7 +122,7 @@ void Kernel::three_d_laplace(int mat_idx, ki_Mat* ret, double r1, double r2,
 
 void Kernel::compute_diag_entries_3dlaplace(Boundary* boundary) {
   boundary_diags = std::vector<double>(boundary->weights.size());
-  #pragma omp parallel for num_threads(8)
+  #pragma omp parallel for num_threads(16)
   for (int pt_idx = 0; pt_idx < boundary->num_outer_nodes; pt_idx++) {
     double tp1 = boundary->points[3 * pt_idx];
     double tp2 = boundary->points[3 * pt_idx + 1];
@@ -156,7 +156,7 @@ void Kernel::compute_diag_entries_3dlaplace(Boundary* boundary) {
 
   int curr_idx = boundary->num_outer_nodes;
   for (Hole hole : boundary->holes) {
-    #pragma omp parallel for num_threads(8)
+    #pragma omp parallel for num_threads(16)
     for (int pt_idx = curr_idx; pt_idx < curr_idx + hole.num_nodes; pt_idx++) {
       double tp1 = boundary->points[3 * pt_idx];
       double tp2 = boundary->points[3 * pt_idx + 1];
@@ -203,7 +203,7 @@ void Kernel::compute_diag_entries_3dstokes(Boundary* boundary) {
     //   boundary_diag_tensors[i].set(2,2,1);
   }
   // return;
-  #pragma omp parallel for num_threads(8)
+  #pragma omp parallel for num_threads(16)
   for (int dof = 0; dof < boundary->num_outer_nodes * domain_dimension; dof++) {
     int pt_idx = dof / 3;
     double tp1 = boundary->points[3 * pt_idx];
@@ -245,7 +245,7 @@ void Kernel::compute_diag_entries_3dstokes(Boundary* boundary) {
   int curr_idx = boundary->num_outer_nodes * domain_dimension;
 
   for (Hole hole : boundary->holes) {
-    #pragma omp parallel for num_threads(8)
+    #pragma omp parallel for num_threads(16)
     for (int dof = curr_idx; dof < curr_idx + hole.num_nodes * domain_dimension;
          dof++) {
       int pt_idx = dof / 3;
@@ -310,7 +310,7 @@ ki_Mat Kernel::operator()(const std::vector<int>& tgt_inds,
   int olda_ = tgt_inds.size();
   int threads = 1;
   if (parallel) {
-    threads = 1;
+    threads = 8;
   }
   #pragma omp parallel for num_threads(threads)
   for (int j = 0; j < src_inds.size(); j++) {
@@ -367,7 +367,7 @@ ki_Mat Kernel::get_3d(const std::vector<int>& tgt_inds,
   int olda_ = tgt_inds.size();
   int threads = 1;
   if (parallel) {
-    threads = 1;
+    threads = 8;
   }
   #pragma omp parallel for num_threads(threads)
   for (int j = 0; j < src_inds.size(); j++) {
@@ -586,7 +586,7 @@ ki_Mat Kernel::get_proxy_mat3d(std::vector<double> center,
                                const std::vector<int>& box_inds) const {
 
   // each row is a pxy point, cols are box dofs
-  // r *= 2;
+  r *= 2;
   std::vector<double> pxy_p, pxy_n, pxy_w;
   for (int i = 0; i < pxy_thetas.size(); i++) {
     double theta = pxy_thetas[i];
