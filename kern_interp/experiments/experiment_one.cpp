@@ -24,7 +24,7 @@ void run_experiment1(int num_boundary_points) {
   int domain_size = 10;
   int domain_dimension = 2;
   int solution_dimension = 2;
-  int fact_threads = 4;
+  int fact_threads = 8;
   std::unique_ptr<Boundary> boundary =
     std::unique_ptr<Boundary>(new Ex1Boundary());
   boundary->initialize(num_boundary_points, BoundaryCondition::DEFAULT);

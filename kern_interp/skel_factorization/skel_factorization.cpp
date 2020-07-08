@@ -102,12 +102,12 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
 
   double start, end;
   start = omp_get_wtime();
-
+std::cout<<"max threads "<<omp_get_max_threads()<<std::endl;
   int nodes_left = kernel.boundary_points_.size();
   int prev_nodes_left = nodes_left;
   for (int level = lvls - 1; level >  1; level--) {
     end = omp_get_wtime();
-    // std::cout << "level " << level << " " << (end - start) << std::endl;
+     std::cout << "level " << level << " " << (end - start) << std::endl;
     prev_nodes_left = nodes_left;
     start = end;
     tree->remove_inactive_dofs_at_level(level);
@@ -130,7 +130,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
   }
 
   end = omp_get_wtime();
-  // std::cout << "Last level " << (end - start) << std::endl;
+   std::cout << "Last level " << (end - start) << std::endl;
   // std::cout << "Nodes left " << nodes_left << std::endl;
   // If the above breaks due to a cap, we need to manually propagate active
   // boxes up the tree.
@@ -143,7 +143,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
     start = omp_get_wtime();
     tree->allskel_mat = kernel(allskel, allskel, false, true) - allskel_updates;
     end = omp_get_wtime();
-    // std::cout << "allskel get time " << end - start << std::endl;
+     std::cout << "allskel get time " << end - start << std::endl;
   }
 
   if (tree->U.width() == 0) {

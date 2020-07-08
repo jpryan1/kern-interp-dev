@@ -20,7 +20,7 @@ namespace kern_interp {
 void run_one_hole_sphere() {
 
   int num_threads = 8;
-  double id_tol = 1e-6;
+  double id_tol = 1e-3;
 
   std::unique_ptr<Boundary> boundary3d =
     std::unique_ptr<Boundary>(new Sphere());
