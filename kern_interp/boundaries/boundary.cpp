@@ -126,25 +126,42 @@ void Boundary::apply_boundary_condition(int start_point_idx, int end_point_idx,
       case EX1: {
         double x = points[2 * point_idx ];
         double y = points[2 * point_idx + 1];
-        if (y < 0.01 || y > 2.99) {
+        if ((y < 0.01 || y > 2.99) && x > 0.01 && x < 0.49) {
+          // 0 to 0.5
+          double phase = x * (4 * M_PI);
+          double mag = 0.5 - 0.5 * cos(phase);
           boundary_values.set(2 * point_idx, 0, 0);
-          boundary_values.set(2 * point_idx + 1, 0, -1);
-        } else if (x < 0.1 && (
+          boundary_values.set(2 * point_idx + 1, 0, -2 * mag);
+        } else if (x < -0.1 && (
                      (std::abs(y - 2.75) < 0.01) ||
                      (std::abs(y - 0.5) < 0.01)
                    )) {
+          // -0.5 to -0.25
+          double phase = (x + 0.5) * (8 * M_PI);
+          double mag = 0.5 - 0.5 * cos(phase);
           boundary_values.set(2 * point_idx, 0, 0);
-          boundary_values.set(2 * point_idx + 1, 0, -1);
-        } else if (x > 0.6 && (
+          boundary_values.set(2 * point_idx + 1, 0, -2 * mag);
+        } else if (x > 0.76 && (
                      (std::abs(y - 3.0) < 0.01) ||
                      (std::abs(y - 0.25) < 0.01)
                    )) {
+          // 0.75 to 1
+          double phase = (x - 0.75) * (8 * M_PI);
+          double mag = 0.5 - 0.5 * cos(phase);
           boundary_values.set(2 * point_idx, 0, 0);
-          boundary_values.set(2 * point_idx + 1, 0, -1);
-        } else if ((x > 0.6 && (std::abs(y - 1.75) < 0.01)) ||
-                   (x < 0.1 && (std::abs(y - 1.25) < 0.01))) {
+          boundary_values.set(2 * point_idx + 1, 0, -2 * mag);
+        } else if ((x < -0.26 && (std::abs(y - 1.25) < 0.01))) {
+          // -0.5 to -0.25
+          double phase = (x + 0.5) * (8 * M_PI);
+          double mag = 0.5 - 0.5 * cos(phase);
           boundary_values.set(2 * point_idx, 0, 0);
-          boundary_values.set(2 * point_idx + 1, 0, -2);
+          boundary_values.set(2 * point_idx + 1, 0, -4 * mag);
+        } else if ((x > 0.76 && (std::abs(y - 1.75) < 0.01))) {
+          // 0.75 to 1
+          double phase = (x - 0.75) * (8 * M_PI);
+          double mag = 0.5 - 0.5 * cos(phase);
+          boundary_values.set(2 * point_idx, 0, 0);
+          boundary_values.set(2 * point_idx + 1, 0, -4 * mag);
         } else {
           boundary_values.set(2 * point_idx, 0, 0);
           boundary_values.set(2 * point_idx + 1, 0, 0);

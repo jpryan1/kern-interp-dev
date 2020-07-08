@@ -25,6 +25,7 @@ void run_one_hole_sphere() {
 
   int num_threads = 64;
   double id_tol = 1e-5;
+
   boundary->initialize(pow(2, 7),  BoundaryCondition::STOKES_3D_MIX);
 
   QuadTree quadtree;
