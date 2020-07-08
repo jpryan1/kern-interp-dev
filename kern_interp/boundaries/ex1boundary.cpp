@@ -228,17 +228,17 @@ void Ex1Boundary::initialize(int N, BoundaryCondition bc) {
     perturbation_parameters.push_back(0);
   }
 
-  Hole circle;
-  circle.radius = 0.075;
-  circle.num_nodes =  NUM_CIRCLE_POINTS;
-  circle.center = PointVec(0.25, 0.4);
-  holes.push_back(circle);
+  // Hole circle;
+  // circle.radius = 0.075;
+  // circle.num_nodes =  NUM_CIRCLE_POINTS;
+  // circle.center = PointVec(0.25, 0.4);
+  // holes.push_back(circle);
 
-  circle.center = PointVec(0.25, 1.5 - perturbation_parameters[0]);
-  holes.push_back(circle);
+  // circle.center = PointVec(0.25, 1.5 - perturbation_parameters[0]);
+  // holes.push_back(circle);
 
-  circle.center = PointVec(0.25, 2.5);
-  holes.push_back(circle);
+  // circle.center = PointVec(0.25, 2.5);
+  // holes.push_back(circle);
 
   std::vector<double> outer_x0_spline_points, outer_x1_spline_points;
   get_spline_points(&outer_x0_spline_points, &outer_x1_spline_points);

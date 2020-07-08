@@ -258,7 +258,7 @@ ki_Mat boundary_integral_solve(const Kernel& kernel, const Boundary& boundary,
   double start = omp_get_wtime();
   skel_factorization.skeletonize(kernel, quadtree);
   double end = omp_get_wtime();
-  std::cout  << end - start << std::endl;
+  std::cout  << "skel time " << end - start << std::endl;
 
   schur_solve(skel_factorization, *quadtree, U, Psi, f, K_domain,
               U_forward, &domain_solution);
