@@ -17,7 +17,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
 
   std::vector<double> file_points, file_weights;
   string line;
-  ifstream myfile("kern_interp/boundaries/tri11146.txt");
+  ifstream myfile("kern_interp/boundaries/tri55802.txt");
   if (myfile.is_open()) {
     while (getline(myfile, line)) {
       stringstream s_stream(line);
@@ -36,7 +36,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
 
   std::vector<double> file_hole_points, file_hole_weights;
   string hole_line;
-  ifstream myholefile("kern_interp/boundaries/tri570.txt");
+  ifstream myholefile("kern_interp/boundaries/tri1032.txt");
   if (myholefile.is_open()) {
     while (getline(myholefile, hole_line)) {
       stringstream s_stream(hole_line);
