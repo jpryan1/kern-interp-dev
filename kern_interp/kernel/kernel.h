@@ -91,7 +91,7 @@ struct Kernel {
 
   ki_Mat get_id_mat(const QuadTree * tree,
                     const QuadTreeNode * node) const;
-  ki_Mat get_proxy_mat(std::vector<double> center,
+  ki_Mat get_proxy_mat(std::vector<double> center, int num_points,
                        double r, const QuadTree * tree,
                        const std::vector<int> & box_inds) const;
 

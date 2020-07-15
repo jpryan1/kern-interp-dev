@@ -455,8 +455,10 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
                       (*this)(active_box, outside_box), true, true);
     return mat;
   }
+
   // If at level 2, grab active from all on level, plus from leaves of level 1
-  // Commented to allow exact updating
+  // Commented to allow exact updating, note this may affect acc if 
+  // discretization is particularly heavy in low intrinsic dimension
   // if (node->level ==  && domain_dimension < 3) {
   //   for (QuadTreeNode* level_node : tree->levels[node->level]->nodes) {
   //     if (level_node != node) {
@@ -555,8 +557,8 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
 
   }
 
-
-  ki_Mat pxy = get_proxy_mat(node->center, node->side_length
+  int num_p_points = NUM_PROXY_POINTS;
+  ki_Mat pxy = get_proxy_mat(node->center, NUM_PROXY_POINTS, node->side_length
                              * RADIUS_RATIO, tree, active_box);
   // Now all the matrices are gathered, put them into mat.
   ki_Mat mat(2 * inner_circle.size() + pxy.height(), active_box.size());
@@ -576,18 +578,19 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
 // TODO(John) the general proxy stuff is just unreadable, replace with switch
 // statements for kernels. It's not that bad. Or at least clean up the generality stuff
 
-ki_Mat Kernel::get_proxy_mat(std::vector<double> center,
+ki_Mat Kernel::get_proxy_mat(std::vector<double> center, int num_points,
                              double r, const QuadTree * tree,
                              const std::vector<int>& box_inds) const {
   if (domain_dimension == 3) {
     return get_proxy_mat3d(center, r, tree, box_inds);
   }
+
   // each row is a pxy point, cols are box dofs
-  double pxy_w = 2.0 * M_PI * r / NUM_PROXY_POINTS;
+  double pxy_w = 2.0 * M_PI * r / num_points;
   std::vector<double>  pxy_p, pxy_n;
 
-  for (int i = 0; i < NUM_PROXY_POINTS; i++) {
-    double ang = 2 * M_PI * i * (1.0 / NUM_PROXY_POINTS);
+  for (int i = 0; i < num_points; i++) {
+    double ang = 2 * M_PI * i * (1.0 / num_points);
     for (int k = 1; k < 2; k++) {   // modify this for annulus proxy
       double eps = (k - 1) * 1;
       pxy_p.push_back(center[0] + (r + eps) * cos(ang));
