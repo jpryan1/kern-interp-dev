@@ -241,6 +241,7 @@ ki_Mat boundary_integral_solve(const Kernel& kernel, const Boundary& boundary,
                                const std::vector<double>& domain_points) {
   // Consider making init instead of constructor for readability
   SkelFactorization skel_factorization(id_tol, fact_threads);
+
   ki_Mat K_domain = kernel.forward();
   ki_Mat f = boundary.boundary_values;
   ki_Mat U = initialize_U_mat(kernel.pde, boundary.holes, boundary.points,
@@ -249,12 +250,10 @@ ki_Mat boundary_integral_solve(const Kernel& kernel, const Boundary& boundary,
                                   boundary, kernel.domain_dimension);
   ki_Mat U_forward = initialize_U_mat(kernel.pde, boundary.holes,
                                       kernel.domain_points, kernel.domain_dimension);
-
   ki_Mat domain_solution((kernel.domain_points.size() / kernel.domain_dimension)*
                          kernel.solution_dimension, 1);
   quadtree->U = U;
   quadtree->Psi = Psi;
-
   double start = omp_get_wtime();
   skel_factorization.skeletonize(kernel, quadtree);
   double end = omp_get_wtime();
@@ -315,9 +314,6 @@ void get_domain_points3d(int domain_size, std::vector<double>* points,
       }
     }
   }
-
-
-
   // for (int i = 0; i < domain_size; i++) {
   //   double r = eps + min + ((max - min - eps) * (i / (domain_size + 0.)));
   //   // double x = min + ((i + 0.0) / (domain_size - 1)) * (max - min);
@@ -415,7 +411,6 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     return err.vec_two_norm() / boundary->boundary_values.vec_two_norm();
   }
 }
-
 
 
 ki_Mat stokes_true_sol(const std::vector<double>& domain_points,

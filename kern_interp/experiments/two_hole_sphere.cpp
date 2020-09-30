@@ -23,6 +23,7 @@ void run_two_hole_sphere() {
 
   std::unique_ptr<Boundary> boundary3d =
     std::unique_ptr<Boundary>(new Sphere());
+  // Boundary condition is flow past noslip interior holes.
   boundary3d->initialize(pow(2, 14),  BoundaryCondition::STOKES_3D_MIX);
 
   QuadTree quadtree3d;

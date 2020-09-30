@@ -311,7 +311,7 @@ ki_Mat Kernel::operator()(const std::vector<int>& tgt_inds,
   int olda_ = tgt_inds.size();
   int threads = 1;
   if (parallel) {
-    threads = 1;
+    threads = 8;
   }
   #pragma omp parallel for num_threads(threads)
   for (int j = 0; j < src_inds.size(); j++) {
@@ -368,7 +368,7 @@ ki_Mat Kernel::get_3d(const std::vector<int>& tgt_inds,
   int olda_ = tgt_inds.size();
   int threads = 1;
   if (parallel) {
-    threads = 1;
+    threads = 8;
   }
   #pragma omp parallel for num_threads(threads)
   for (int j = 0; j < src_inds.size(); j++) {
@@ -457,68 +457,59 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
   }
 
   // If at level 2, grab active from all on level, plus from leaves of level 1
-  // Commented to allow exact updating, note this may affect acc if 
+  // Commented to allow exact updating, note this may affect acc if
   // discretization is particularly heavy in low intrinsic dimension
-  // if (node->level ==  && domain_dimension < 3) {
-  //   for (QuadTreeNode* level_node : tree->levels[node->level]->nodes) {
-  //     if (level_node != node) {
-  //       for (int matrix_index :
-  //            level_node->dof_lists.active_box) {
-  //         outside_box.push_back(matrix_index);
-  //       }
-  //     }
-  //   }
-  //   for (int lvl = node->level - 1; lvl >= 0; lvl--) {
-  //     for (QuadTreeNode* level_node : tree->levels[lvl]->nodes) {
-  //       //TODO shouldnt this check for compression?
-  //       if (level_node->is_leaf) {
-  //         for (int matrix_index :
-  //              level_node->dof_lists.original_box) {
+  if (node->level == 2 && domain_dimension < 3) {
+    for (QuadTreeNode* level_node : tree->levels[node->level]->nodes) {
+      if (level_node != node) {
+        for (int matrix_index :
+             level_node->dof_lists.active_box) {
+          outside_box.push_back(matrix_index);
+        }
+      }
+    }
+    for (int lvl = node->level - 1; lvl >= 0; lvl--) {
+      for (QuadTreeNode* level_node : tree->levels[lvl]->nodes) {
+        // TODO(John) shouldnt this check for compression?
+        if (level_node->is_leaf) {
+          for (int matrix_index :
+               level_node->dof_lists.original_box) {
+            outside_box.push_back(matrix_index);
+          }
+        }
+      }
+    }
 
-  //           outside_box.push_back(matrix_index);
-  //         }
-  //       }
-  //     }
-  //   }
+    // std::vector<std::pair<double, int>> outboxtmp;
+    // for (int i = 0; i < outside_box.size(); i++) {
+    //   int points_vec_index = domain_dimension
+    //                          * (outside_box[i] / solution_dimension);
+    //   double x = boundary_points_[points_vec_index];
+    //   double y = boundary_points_[points_vec_index + 1];
+    //   double dist = 0.;
+    //   for (int d = 0; d < domain_dimension; d++) {
+    //     dist += pow(node->center[d]
+    //                 - boundary_points_[points_vec_index + d], 2);
+    //   }
+    //   dist = sqrt(dist);
+    //   outboxtmp.push_back(std::pair<double, int>(dist,
+    //                       outside_box[i]));
+    // }
+    // std::sort(outboxtmp.begin(), outboxtmp.end());
+    // outside_box.clear();
+    // for (int i = 0; i < outboxtmp.size(); i++) {
+    //   outside_box.push_back(outboxtmp[i].second);
+    // }
 
-  //   std::vector<std::pair<double, int>> outboxtmp;
-  //   for (int i = 0; i < outside_box.size(); i++) {
-  //     int points_vec_index = domain_dimension * (outside_box[i] / solution_dimension);
-  //     double x = boundary_points_[points_vec_index];
-  //     double y = boundary_points_[points_vec_index + 1];
-  //     double dist = 0.;
-  //     for (int d = 0; d < domain_dimension; d++) {
-  //       dist += pow(node->center[d] - boundary_points_[points_vec_index + d], 2);
-  //     }
-  //     dist = sqrt(dist);
-  //     outboxtmp.push_back(std::pair<double, int>(dist,
-  //                         outside_box[i]));
-  //   }
-  //   std::sort(outboxtmp.begin(),
-  //             outboxtmp.end());
-  //   outside_box.clear();
-  //   for (int i = 0; i < outboxtmp.size(); i++) {
-  //     outside_box.push_back(outboxtmp[i].second);
+    ki_Mat mat(2 * outside_box.size(), active_box.size());
+    mat.set_submatrix(0, outside_box.size(), 0, active_box.size(),
+                      (*this)(outside_box, active_box), false, true);
+    mat.set_submatrix(outside_box.size(), 2 * outside_box.size(),
+                      0, active_box.size(),
+                      (*this)(active_box, outside_box), true, true);
 
-
-  //     // if ((std::abs(node->center[0]+0.6453917096) < 1e-5) &&
-  //     //     (std::abs(node->center[1] -0.11820276) < 1e-5)) {
-  //     //    int points_vec_index = domain_dimension * (outside_box[i] / solution_dimension);
-  //     //   double x = boundary_points_[points_vec_index];
-  //     // double y = boundary_points_[points_vec_index + 1];
-  //     //   std::cout << "outside " << outboxtmp[i].first << " "<<outboxtmp[i].second<<" "<<x<<" "<<y<<
-  //     // std::endl;
-  //     // }
-  //   }
-  //   ki_Mat mat(2 * outside_box.size(), active_box.size());
-  //   mat.set_submatrix(0, outside_box.size(), 0, active_box.size(),
-  //                     (*this)(outside_box, active_box), false, true);
-  //   mat.set_submatrix(outside_box.size(), 2 * outside_box.size(),
-  //                     0, active_box.size(),
-  //                     (*this)(active_box, outside_box), true, true);
-
-  //   return mat;
-  // }
+    return mat;
+  }
 
   for (int matrix_index : node->dof_lists.near) {
     int point_index = matrix_index / solution_dimension;

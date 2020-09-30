@@ -4,6 +4,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <vector>
 #include "kern_interp/boundaries/sphere.h"
 #include "kern_interp/legendre.h"
 
@@ -14,10 +15,10 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
   normals.clear();
   weights.clear();
   curvatures.clear();
-
+  string data_dir = "kern_interp/boundaries/sphere_triangulations/";
   std::vector<double> file_points, file_weights;
   string line;
-  ifstream myfile("kern_interp/boundaries/tri11146.txt");
+  ifstream myfile(data_dir + "tri4192.txt");
   if (myfile.is_open()) {
     while (getline(myfile, line)) {
       stringstream s_stream(line);
@@ -31,16 +32,17 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
       file_weights.push_back(std::stod(wt));
     }
     myfile.close();
-  }
-  else{
-    std::cout<<"NO File"<<std::endl;
+  } else {
+    std::cout << "NO File" << std::endl;
     exit(0);
   }
   num_outer_nodes = file_points.size() / 3;
 
+  // Now we read in the data for the interior hole
   std::vector<double> file_hole_points, file_hole_weights;
   string hole_line;
-  ifstream myholefile("kern_interp/boundaries/tri570.txt");
+  ifstream
+  myholefile(data_dir + "tri570.txt");
   if (myholefile.is_open()) {
     while (getline(myholefile, hole_line)) {
       stringstream s_stream(hole_line);
@@ -55,8 +57,6 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
     }
     myholefile.close();
   }
-
-
   int num_hole_points = file_hole_points.size() / 3;
 
   if (holes.size() == 0) {
@@ -71,7 +71,6 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
 
   int total_points = num_outer_nodes +
                      (num_holes * num_hole_points);
-
   for (int i = 0; i < num_outer_nodes; i++) {
     points.push_back(0.5 + file_points[3 * i]);
     points.push_back(0.5 + file_points[3 * i + 1]);
@@ -82,11 +81,15 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
     weights.push_back(file_weights[i]);
   }
 
+  // For the interior hole, we dilate to 0.1x the original size.
   for (Hole hole : holes) {
     for (int i = 0; i < num_hole_points; i++) {
-      points.push_back(hole.center.a[0] + hole.radius * file_hole_points[3 * i]);
-      points.push_back(hole.center.a[1] + hole.radius * file_hole_points[3 * i + 1]);
-      points.push_back(hole.center.a[2] + hole.radius * file_hole_points[3 * i + 2]);
+      points.push_back(hole.center.a[0]
+                       + hole.radius * file_hole_points[3 * i]);
+      points.push_back(hole.center.a[1]
+                       + hole.radius * file_hole_points[3 * i + 1]);
+      points.push_back(hole.center.a[2]
+                       + hole.radius * file_hole_points[3 * i + 2]);
       normals.push_back(file_hole_points[3 * i]);
       normals.push_back(file_hole_points[3 * i + 1]);
       normals.push_back(file_hole_points[3 * i + 2]);
@@ -105,7 +108,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
 
 bool Sphere::is_in_domain(const PointVec& a) const {
   PointVec center(0.5, 0.5, 0.5);
-  double eps = 0.1;
+  double eps = 0.01;
   double dist = (center - a).norm();
   if (dist + eps > r) return false;
   for (Hole hole : holes) {
