@@ -372,11 +372,9 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
       all_dofs.push_back(i);
     }
     ki_Mat kern = kernel(all_dofs, all_dofs);
-    int hole_factor = kernel.solution_dimension == 2 ? 3 : 1;
-    int added = hole_factor * boundary->holes.size();
-    dense = ki_Mat(all_dofs.size() + added, all_dofs.size() + added);
-    ki_Mat ident(added, added);
-    ident.eye(added);
+    dense = ki_Mat(all_dofs.size() + U.width(), all_dofs.size() +U.width());
+    ki_Mat ident( U.width(),  U.width());
+    ident.eye( U.width());
     dense.set_submatrix(0, all_dofs.size(), 0, all_dofs.size(), kern);
     dense.set_submatrix(0, all_dofs.size(), all_dofs.size(), dense.width(), U);
     dense.set_submatrix(all_dofs.size(), dense.height(),
@@ -406,7 +404,7 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     double start = omp_get_wtime();
     ki_Mat bigK = kernel(all_dofs, all_dofs);
     double end = omp_get_wtime();
-    std::cout << "Big kern call took " << (end - start) << std::endl;
+    // std::cout << "Big kern call took " << (end - start) << std::endl;
     ki_Mat err = (bigK * mu) - boundary->boundary_values;
     return err.vec_two_norm() / boundary->boundary_values.vec_two_norm();
   }

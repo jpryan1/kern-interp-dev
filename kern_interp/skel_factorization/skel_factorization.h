@@ -3,6 +3,7 @@
 #define KERN_INTERP_SKEL_FACTORIZATION_SKEL_FACTORIZATION_H_
 
 #include <atomic>
+#include <set>
 #include <vector>
 #include "kern_interp/ki_mat.h"
 #include "kern_interp/quadtree/quadtree.h"
@@ -26,17 +27,11 @@ class SkelFactorization {
   SkelFactorization(double id_tol, int fact_threads);
   ~SkelFactorization() {}
   void decouple(const Kernel& K, QuadTreeNode* node);
+  void decouple(const Kernel& K, HalfLevelNode* node);
   int id_compress(const Kernel& K, const QuadTree* tree,
                   QuadTreeNode* node);
-
-  void get_all_schur_updates(ki_Mat* updates,
-                             const std::vector<int>& BN,
-                             const QuadTreeNode* node) const;
-  void get_descendents_updates(ki_Mat* updates,
-                               const std::vector<int>& BN,
-                               const QuadTreeNode* node) const;
-  void get_update(ki_Mat* updates, const std::vector<int>& BN,
-                  const QuadTreeNode* node) const;
+  int id_compress(const Kernel& kernel, const QuadTree* tree,
+                  HalfLevelNode* node) ;
 
   void skeletonize(const Kernel& K, QuadTree* tree);
 

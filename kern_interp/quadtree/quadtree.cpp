@@ -6,6 +6,7 @@
 #include <cmath>
 #include <unordered_map>
 #include <iostream>
+#include <queue>
 #include <utility>
 #include <boost/functional/hash.hpp>
 #include "kern_interp/quadtree/quadtree.h"
@@ -21,6 +22,77 @@ QuadTree::~QuadTree() {
     }
   }
   levels.clear();
+}
+
+
+bool almost_align(const std::vector<double>& a,
+                  const std::vector<double>& b) {
+  for (int i = 0; i < a.size(); i++) {
+    if (std::abs(a[i] - b[i]) > 1e-9) {
+      return false;
+    }
+  }
+  return true;
+}
+
+
+void QuadTree::compute_half_levels() {
+  // Every node (except root) gets recompressor node for each side.
+  // Before recompressor created, check if it's already been made.
+  // Once recompressor created, check neighbors and add accordingly
+
+  for (int level = 0; level < levels.size(); level++) {
+    QuadTreeLevel* current_level = levels[level];
+    for (int k = 0; k < current_level->nodes.size(); k++) {
+      QuadTreeNode* node_a = current_level->nodes[k];
+
+      std::vector<std::vector<double>> existent_recompressors;
+      for (HalfLevelNode* recompressor : node_a->recompressor_nodes) {
+        existent_recompressors.push_back(recompressor->center);
+      }
+      // iterate over sides
+      for (int d = 0; d < domain_dimension; d++) {
+        // each dimension has two sides
+        for (int side_parity = -1; side_parity <= 1; side_parity += 2) {
+          std::vector<double> newcenter = node_a->center;
+          newcenter[d] += side_parity * node_a->side_length / 2.0;
+          bool already_exists = false;
+          for (std::vector<double> existent_recompressor : existent_recompressors) {
+            if (almost_align(existent_recompressor, newcenter)) {
+              already_exists = true;
+              break;
+            }
+          }
+          if (already_exists) continue;
+          QuadTreeNode* sharing_container;
+          HalfLevelNode* recompressor;
+          bool node_created = false;
+          // Check same-level neighbors to ensure one exists to share the node
+          // with
+          for (QuadTreeNode* neighbor : node_a->neighbors) {
+            if (neighbor->level != node_a->level) continue;
+            std::vector<double> othernewcenter = neighbor->center;
+            othernewcenter[d] -= side_parity * neighbor->side_length / 2.0;
+            if (almost_align(newcenter, othernewcenter)) {
+              // Create the new halfnode
+              recompressor = new HalfLevelNode();
+              recompressor->center = newcenter;
+              recompressor->side_length = node_a->side_length / sqrt(2);
+              recompressor->partner_level = level;
+              current_level->half_level->nodes.push_back(recompressor);
+              node_a->recompressor_nodes.push_back(recompressor);
+              neighbor->recompressor_nodes.push_back(recompressor);
+              recompressor->containing_nodes.push_back(neighbor);
+              recompressor->containing_nodes.push_back(node_a);
+              node_created = true;
+              sharing_container = neighbor;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 
@@ -101,6 +173,7 @@ void QuadTree::initialize_tree(Boundary* boundary,
   }
   root->side_length = tree_max - tree_min;
   QuadTreeLevel* level_one = new QuadTreeLevel();
+  level_one->half_level = new HalfLevel();
   level_one->nodes.push_back(root);
   levels.push_back(level_one);
 
@@ -112,8 +185,8 @@ void QuadTree::initialize_tree(Boundary* boundary,
     recursive_add(this->root, pt, i / domain_dimension);
   }
   compute_neighbor_lists();
+  compute_half_levels();
   sort_leaves();
-
 }
 
 
@@ -201,6 +274,7 @@ void QuadTree::node_subdivide(QuadTreeNode* node) {
   }
   if (levels.size() < node->level + 2) {
     QuadTreeLevel* new_level = new QuadTreeLevel();
+    new_level->half_level = new HalfLevel();
     levels.push_back(new_level);
     for (QuadTreeNode* child : node->children) {
       new_level->nodes.push_back(child);
@@ -255,6 +329,8 @@ void QuadTree::mark_neighbors_and_parents(QuadTreeNode * node) {
   node->L = ki_Mat(0, 0);
 
   for (QuadTreeNode* neighbor : node->neighbors) {
+    // These aren't p_marked as they don't contain perturbations within them,
+    // but need updating due to their neighbors.
     neighbor->compressed = false;
     neighbor->X_rr_is_LU_factored = false;
     neighbor->dof_lists.active_box.clear();
@@ -320,7 +396,7 @@ void QuadTree::sort_leaves() {
       if ((!node->is_leaf) || node->compressed) continue;
       std::vector<std::pair<double, int>> origboxtmp;
       for (int i = 0; i < node->dof_lists.original_box.size(); i++) {
-        int points_vec_index = domain_dimension * ( node->dof_lists.original_box[i] /
+        int points_vec_index = domain_dimension * (node->dof_lists.original_box[i] /
                                solution_dimension);
         double x = boundary_points[points_vec_index];
         double y = boundary_points[points_vec_index + 1];
@@ -330,13 +406,13 @@ void QuadTree::sort_leaves() {
         }
         dist = sqrt(dist);
         origboxtmp.push_back(std::pair<double, int>(dist,
-                                node->dof_lists.original_box[i]));
+                             node->dof_lists.original_box[i]));
       }
       std::sort(origboxtmp.begin(),
                 origboxtmp.end());
-       node->dof_lists.original_box.clear();
+      node->dof_lists.original_box.clear();
       for (int i = 0; i < origboxtmp.size(); i++) {
-         node->dof_lists.original_box.push_back(origboxtmp[i].second);
+        node->dof_lists.original_box.push_back(origboxtmp[i].second);
       }
     }
   }
@@ -476,7 +552,6 @@ void QuadTree::perturb(const Boundary & perturbed_boundary) {
         }
       }
       current = current->children[child_idx];
-
     }
     for (int j = 0; j < solution_dimension; j++) {
       current->dof_lists.original_box.push_back(solution_dimension
@@ -505,16 +580,17 @@ void QuadTree::perturb(const Boundary & perturbed_boundary) {
   // go through all deletions, find their leaves, make deletion and call mark
   // function
   std::unordered_map<QuadTreeNode*, bool> sparse;
-
   for (int i = 0; i < deletions.size(); i++) {
     QuadTreeNode* current = root;
-    bool path_marked = false;
-
+    // oldpt is the current point that's being deleted
     std::vector<double> oldpt;
     for (int j = 0; j < domain_dimension; j++) {
       oldpt.push_back(old_points[domain_dimension * deletions[i] + j]);
     }
 
+    bool path_marked = false;
+    // Starting from the root, mark all boxes containing deleted point, identify
+    // first that's sparse and can be consolidated.
     while (!current->is_leaf) {
       if (current->dofs_below < MAX_LEAF_DOFS && !path_marked) {
         path_marked = true;
@@ -529,6 +605,7 @@ void QuadTree::perturb(const Boundary & perturbed_boundary) {
       }
       current = current->children[child_idx];
     }
+    // Now current is the leaf containing the deleted point
     mark_neighbors_and_parents(current);
   }
 
@@ -538,11 +615,13 @@ void QuadTree::perturb(const Boundary & perturbed_boundary) {
     if (node->is_leaf
         && node->dof_lists.original_box.size() > MAX_LEAF_DOFS) {
       node_subdivide(node);
-    //TODO Is this necessary?
-      for (QuadTreeNode* child : node->children) mark_neighbors_and_parents(child);
+      // Is this necessary?
+      for (QuadTreeNode* child : node->children) {
+        mark_neighbors_and_parents(child);
+      }
     }
   }
-  // If we can consolidate nodes into their parent, do that.
+// If we can consolidate nodes into their parent, do that.
   for (auto it = sparse.begin(); it != sparse.end(); ++it) {
     consolidate_node(it->first);
   }
@@ -579,7 +658,7 @@ void copy_info(QuadTreeNode* old_node, QuadTreeNode* new_node) {
   // }
 }
 
-
+// TODO(HIF)
 void QuadTree::copy_into(QuadTree* new_tree) const {
   // The strategy here is going to be to create a new node for every old node,
   // then keep a mapping from new to old. With that, we'll copy all the data
@@ -712,9 +791,254 @@ void QuadTree::remove_inactive_dofs_at_box(QuadTreeNode* node) {
         }
       }
     }
+    remove_hif_deactivated_dofs(node);
   } else {
     node->dof_lists.active_box = node->dof_lists.original_box;
   }
 }
+
+void QuadTree::remove_hif_deactivated_dofs(QuadTreeNode* node) {
+  std::vector<int> hif_deactivated_dofs;
+  std::set<HalfLevelNode*> visited_halfnodes;
+  for (QuadTreeNode* child : node->children) {
+    for (HalfLevelNode* recompressor_node : child->recompressor_nodes) {
+      if (visited_halfnodes.find(recompressor_node) != visited_halfnodes.end()) {
+        continue;
+      }
+      visited_halfnodes.insert(recompressor_node);
+      hif_deactivated_dofs.insert(hif_deactivated_dofs.end(),
+                                  recompressor_node->dof_lists.redundant.begin(),
+                                  recompressor_node->dof_lists.redundant.end());
+    }
+  }
+
+  std::sort(hif_deactivated_dofs.begin(), hif_deactivated_dofs.end());
+  std::sort(node->dof_lists.active_box.begin(),
+            node->dof_lists.active_box.end());
+  std::vector<int> difference;
+  std::set_difference(
+    node->dof_lists.active_box.begin(),  node->dof_lists.active_box.end(),
+    hif_deactivated_dofs.begin(), hif_deactivated_dofs.end(),
+    std::back_inserter(difference)
+  );
+  node->dof_lists.active_box = difference;
+}
+
+
+void QuadTree::populate_half_level_dofs(int level) {
+  double diam = levels[level]->nodes[0]->side_length;
+  int correct = 0;
+  // Go through boxes on this level, assign dofs to relevant half nodes
+
+  for (QuadTreeNode* node : levels[level]->nodes) {
+    if (node->recompressor_nodes.empty()) continue;
+    std::vector<int> dofs;
+    if (node->compressed) {
+      dofs = node->dof_lists.skel;
+    } else if (node->is_leaf) {
+      dofs = node->dof_lists.original_box;
+    } else {
+      dofs = node->dof_lists.active_box;
+    }
+    for (int i = 0; i < dofs.size(); i++) {
+      int idx = dofs[i];
+      int points_vec_index = (idx / solution_dimension) *
+                             domain_dimension;
+      double mindist = node->side_length * 10;
+      std::vector<double> closest_face_center;
+      // Check face centers
+      for (int d = 0; d < domain_dimension; d++) {
+        // each dimension has two sides
+        for (int side_parity = -1; side_parity <= 1; side_parity += 2) {
+          std::vector<double> facecenter = node->center;
+          facecenter[d] += side_parity * node->side_length / 2.0;
+          double facedist = 0;
+          for (int dd = 0; dd < domain_dimension; dd++) {
+            facedist += pow(facecenter[dd] - boundary_points[points_vec_index + dd], 2);
+          }
+          if (sqrt(facedist) < mindist) {
+            closest_face_center = facecenter;
+            mindist = sqrt(facedist);
+          }
+        }
+      }
+      // Now check if closest facecenter corresponds to a recomp node
+      for (HalfLevelNode* recompressor_node : node->recompressor_nodes) {
+        if (almost_align(closest_face_center, recompressor_node->center)) {
+          recompressor_node->dof_lists.active_box.push_back(idx);
+          break;
+        }
+      }
+    }
+  }
+
+  // Near should be any dof in containers or their same or larger sized neighbors
+  for (HalfLevelNode* halfnode : levels[level]->half_level->nodes) {
+    std::set<QuadTreeNode*> visited_nodes;
+    // TODO(HIF) set complexity bad? Use hash?
+    std::set<int> halfnode_contained_dofs;
+    for (int idx : halfnode->dof_lists.active_box) {
+      halfnode_contained_dofs.insert(idx);
+    }
+    for (QuadTreeNode* containing_node : halfnode->containing_nodes) {
+      for (QuadTreeNode* neighbor : containing_node->neighbors) {
+        // skip neighbors from higher levels, parents have info
+        if (neighbor->level > halfnode->partner_level) continue;
+        if (visited_nodes.find(neighbor) != visited_nodes.end()) {
+          continue;
+        }
+        visited_nodes.insert(neighbor);
+
+        // If neighbor is same level, either active or skel has relevant dofs
+        // If it is from lower level, it is leaf with original dofs
+        std::vector<int> dof_list;
+        if (neighbor->compressed) {
+          dof_list = neighbor->dof_lists.skel;
+        } else  if (neighbor->is_leaf) {
+          dof_list = neighbor->dof_lists.original_box;
+        }  else {
+          dof_list = neighbor->dof_lists.active_box;
+        }
+        for (int idx : dof_list) {
+          if (halfnode_contained_dofs.find(idx) != halfnode_contained_dofs.end()) {
+            continue;
+          }
+          halfnode->dof_lists.near.push_back(idx);
+          halfnode_contained_dofs.insert(idx);
+        }
+      }
+    }
+  }
+}
+
+
+void get_half_level_schur_updates(ki_Mat * updates,
+                                  const std::vector<int>& BN, const HalfLevelNode * node,
+                                  std::set<const QuadTreeNode*>* visited_nodes,
+                                  std::set<const HalfLevelNode*>* visited_halfnodes) {
+  assert(node != nullptr &&
+         "get_half_level_schur_updates fails on null node.");
+  assert(BN.size() > 0 &&
+         "get_half_level_schur_updates needs positive num of DOFs");
+
+  std::set<const QuadTreeNode*> visited_nodes_ = std::set<const QuadTreeNode*>();
+  std::set<const HalfLevelNode*> visited_halfnodes_ =
+    std::set<const HalfLevelNode*>();
+  if (visited_nodes == nullptr) {
+    visited_nodes = &visited_nodes_;
+    visited_halfnodes = &visited_halfnodes_;
+  }
+
+  for (QuadTreeNode* containing_node : node->containing_nodes) {
+    if (containing_node->compressed) get_update(updates, BN, containing_node,
+          visited_nodes);
+    get_descendents_updates(updates, BN,
+                            containing_node, visited_nodes, visited_halfnodes);
+
+  }
+}
+
+
+void get_descendents_updates(ki_Mat * updates,
+                             const std::vector<int>& BN, const QuadTreeNode * node,
+                             std::set<const QuadTreeNode*>* visited_nodes,
+                             std::set<const HalfLevelNode*>* visited_halfnodes) {
+  assert(node != nullptr && "get_descendents_updates fails on null node.");
+
+  std::set<const QuadTreeNode*> visited_nodes_ = std::set<const QuadTreeNode*>();
+  std::set<const HalfLevelNode*> visited_halfnodes_ =
+    std::set<const HalfLevelNode*>();
+  if (visited_nodes == nullptr) {
+    visited_nodes = &visited_nodes_;
+    visited_halfnodes = &visited_halfnodes_;
+  }
+
+  for (QuadTreeNode* child : node->children) {
+    if (child->compressed) get_update(updates, BN, child, visited_nodes);
+    for (HalfLevelNode* recompressor_node : child->recompressor_nodes) {
+      if (recompressor_node->compressed) {
+        get_update(updates, BN, recompressor_node, visited_halfnodes);
+      }
+    }
+    get_descendents_updates(updates, BN, child,
+                            visited_nodes, visited_halfnodes);
+  }
+}
+
+
+void get_update(ki_Mat * update,
+                const std::vector<int>& BN,
+                const QuadTreeNode * node,
+                std::set<const QuadTreeNode*>* visited_nodes)  {
+  // Node needs to check all its dofs against BN, enter interactions into
+  // corresponding locations
+  // Node only updated its own BN dofs, and the redundant ones are no longer
+  // relevant, so we only care about child's SN dofs
+  // First create a list of Dofs that are also in node's skelnear,
+  // and with each one give the index in skelnear and the index in BN
+
+  if (visited_nodes->find(node) != visited_nodes->end()) {
+    return;
+  }
+  visited_nodes->insert(node);
+  std::vector<int> BN_;
+  std::vector<int> sn_;
+  for (int sn_idx = 0; sn_idx < node->dof_lists.skelnear.size();
+       sn_idx++) {
+    for (int bn_idx = 0; bn_idx < BN.size(); bn_idx++) {
+      if (BN[bn_idx] == node->dof_lists.skelnear[sn_idx]) {
+        sn_.push_back(sn_idx);
+        BN_.push_back(bn_idx);
+      }
+    }
+  }
+  // For every pair of dofs shared by both, update their interaction
+  int num_shared_by_both = BN_.size();
+  for (int i = 0; i < num_shared_by_both; i++) {
+    for (int j = 0; j < num_shared_by_both; j++) {
+      update->addset(BN_[i], BN_[j], node->schur_update.get(sn_[i], sn_[j]));
+    }
+  }
+}
+
+void get_update(ki_Mat * update,
+                const std::vector<int>& BN,
+                const HalfLevelNode * node,
+                std::set<const HalfLevelNode*>* visited_halfnodes)  {
+  // Node needs to check all its dofs against BN, enter interactions into
+  // corresponding locations
+  // Node only updated its own BN dofs, and the redundant ones are no longer
+  // relevant, so we only care about child's SN dofs
+  // First create a list of Dofs that are also in node's skelnear,
+  // and with each one give the index in skelnear and the index in BN
+  if (visited_halfnodes->find(node) != visited_halfnodes->end()) {
+    return;
+  }
+  visited_halfnodes->insert(node);
+  std::vector<int> BN_;
+  std::vector<int> sn_;
+
+
+  for (int sn_idx = 0; sn_idx < node->dof_lists.skelnear.size();
+       sn_idx++) {
+    for (int bn_idx = 0; bn_idx < BN.size(); bn_idx++) {
+      if (BN[bn_idx] == node->dof_lists.skelnear[sn_idx]) {
+        sn_.push_back(sn_idx);
+        BN_.push_back(bn_idx);
+      }
+    }
+  }
+  // For every pair of dofs shared by both, update their interaction
+  int num_shared_by_both = BN_.size();
+  for (int i = 0; i < num_shared_by_both; i++) {
+    for (int j = 0; j < num_shared_by_both; j++) {
+      update->addset(BN_[i], BN_[j], node->schur_update.get(sn_[i], sn_[j]));
+    }
+  }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+
 
 }  // namespace kern_interp
