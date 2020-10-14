@@ -28,7 +28,7 @@ namespace kern_interp {
 
 void check_solve_err(const Kernel& kernel, Boundary* boundary) {
   double id_tol = 1e-6;
-  EXPECT_LE(solve_err(kernel, boundary, id_tol), 10 * id_tol);
+  EXPECT_LE(solve_err(kernel, boundary, id_tol), 50 * id_tol);
 }
 
 

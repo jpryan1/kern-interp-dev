@@ -9,7 +9,7 @@
 #include "kern_interp/quadtree/quadtree.h"
 #include "kern_interp/kernel/kernel.h"
 
-#define MIN_DOFS_TO_COMPRESS 8
+#define MIN_DOFS_TO_COMPRESS 16
 #define NODE_CAP INFINITY
 #define LEVEL_CAP INFINITY
 

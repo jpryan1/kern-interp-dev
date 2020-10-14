@@ -18,7 +18,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
   string data_dir = "kern_interp/boundaries/sphere_triangulations/";
   std::vector<double> file_points, file_weights;
   string line;
-  ifstream myfile(data_dir + "tri9496.txt");
+  ifstream myfile(data_dir + "tri7970.txt");
   if (myfile.is_open()) {
     while (getline(myfile, line)) {
       stringstream s_stream(line);
@@ -42,7 +42,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
   std::vector<double> file_hole_points, file_hole_weights;
   string hole_line;
   ifstream
-  myholefile(data_dir + "tri1032.txt");
+  myholefile(data_dir + "tri570.txt");
   if (myholefile.is_open()) {
     while (getline(myholefile, hole_line)) {
       stringstream s_stream(hole_line);

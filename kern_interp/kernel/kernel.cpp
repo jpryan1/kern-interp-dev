@@ -570,7 +570,7 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
       dist += pow(node->center[d] - boundary_points_[points_vec_index + d], 2);
     }
     dist = sqrt(dist);
-    if (dist <  RADIUS_RATIO * node->side_length) {
+    if (dist <  sqrt(domain_dimension)*RADIUS_RATIO * node->side_length) {
       inner_circle.push_back(matrix_index);
     }
   }
