@@ -20,7 +20,7 @@ namespace kern_interp {
 void run_one_hole_sphere() {
   srand(0);
   int fact_threads = 8;
-  double id_tol = 1e-6;
+  double id_tol = 1e-3;
   std::unique_ptr<Boundary> boundary =
     std::unique_ptr<Boundary>(new Sphere());
   // Boundary condition is flow past noslip interior hole.
