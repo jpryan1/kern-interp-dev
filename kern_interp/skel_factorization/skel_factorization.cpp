@@ -178,19 +178,16 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
     start = end;
     tree->remove_inactive_dofs_at_level(level);
     QuadTreeLevel* current_level = tree->levels[level];
-    // #pragma omp parallel for num_threads(fact_threads)
+    #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_level->nodes.size(); n++) {
       QuadTreeNode* current_node = current_level->nodes[n];
-      // std::cout << "\tNode has " << current_node->dof_lists.active_box.size() <<
-      //           std::endl;
+
       if (current_node->compressed || current_node->dof_lists.active_box.size()
           < MIN_DOFS_TO_COMPRESS) {
-        // std::cout << "Too few to consider " << std::endl;
         continue;
       }
       double ids = omp_get_wtime();
       if (id_compress(kernel, tree, current_node) == 0) {
-        // std::cout << "No compression possible " << std::endl;
         continue;
       }
       double ide = omp_get_wtime();
@@ -205,7 +202,6 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
 
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_half_level->nodes.size(); n++) {
-      // continue;
       HalfLevelNode* current_half_level_node = current_half_level->nodes[n];
 
       if (current_half_level_node->compressed

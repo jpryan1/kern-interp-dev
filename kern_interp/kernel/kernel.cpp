@@ -451,14 +451,13 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
     ki_Mat mat(2 * outside_box.size(), active_box.size());
 
     std::vector<int> update_indices;
-    for (int idx : node->dof_lists.active_box) {
-      update_indices.push_back(idx);
-    }
+    update_indices.insert(update_indices.end(), node->dof_lists.active_box.begin(),
+                          node->dof_lists.active_box.end());
+    update_indices.insert(update_indices.end(), outside_box.begin(),
+                          outside_box.end());
 
     // TODO(HIF) this is inefficient! make get_update nonsymmetric
-    for (int idx : outside_box) {
-      update_indices.push_back(idx);
-    }
+
     // Note that BN has all currently deactivated DoFs removed.
     ki_Mat update(update_indices.size(), update_indices.size());
     if (!node->is_leaf) get_descendents_updates(&update, update_indices, node,
@@ -528,14 +527,13 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
     ki_Mat mat(2 * outside_box.size(), active_box.size());
 
     std::vector<int> update_indices;
-    for (int idx : node->dof_lists.active_box) {
-      update_indices.push_back(idx);
-    }
 
+    update_indices.insert(update_indices.end(), node->dof_lists.active_box.begin(),
+                          node->dof_lists.active_box.end());
+    update_indices.insert(update_indices.end(), outside_box.begin(),
+                          outside_box.end());
     // TODO(HIF) this is inefficient! make get_update nonsymmetric
-    for (int idx : outside_box) {
-      update_indices.push_back(idx);
-    }
+
     // Note that BN has all currently deactivated DoFs removed.
     ki_Mat update(update_indices.size(), update_indices.size());
 
@@ -559,7 +557,6 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
     return mat;
   }
 
-  // TODO(HIF)
   for (int matrix_index : node->dof_lists.near) {
     int point_index = matrix_index / solution_dimension;
     int points_vec_index = point_index * domain_dimension;
@@ -574,7 +571,7 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
       inner_circle.push_back(matrix_index);
     }
   }
-
+  // Sorting comes up when doing updating w/ zero error
   // std::vector<std::pair<double, int>> innercirctmp;
   // for (int i = 0; i < inner_circle.size(); i++) {
   //   int points_vec_index = domain_dimension * (inner_circle[i] /
@@ -599,20 +596,18 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
 
   int num_p_points = NUM_PROXY_POINTS;
   ki_Mat pxy = get_proxy_mat(node->center, NUM_PROXY_POINTS, node->side_length
-                             * sqrt(domain_dimension)*RADIUS_RATIO, active_box);
+                             * sqrt(domain_dimension) * RADIUS_RATIO, active_box);
   // Now all the matrices are gathered, put them into mat.
   ki_Mat mat(2 * inner_circle.size() + pxy.height(), active_box.size());
 
   std::vector<int> update_indices;
-  for (int idx : node->dof_lists.active_box) {
-    update_indices.push_back(idx);
-  }
+
+  update_indices.insert(update_indices.end(), node->dof_lists.active_box.begin(),
+                        node->dof_lists.active_box.end());
+  update_indices.insert(update_indices.end(), inner_circle.begin(),
+                        inner_circle.end());
 
   // TODO(HIF) this is inefficient! make get_update nonsymmetric
-  for (int idx : inner_circle) {
-    update_indices.push_back(idx);
-  }
-
   // Note that BN has all currently deactivated DoFs removed.
   ki_Mat update(update_indices.size(), update_indices.size());
   get_descendents_updates(&update, update_indices, node,
@@ -713,7 +708,6 @@ ki_Mat Kernel::get_proxy_mat3d(std::vector<double> center,
                                const std::vector<int>& box_inds) const {
 
   // each row is a pxy point, cols are box dofs
-  // r *= 4;
   std::vector<double> pxy_p, pxy_n, pxy_w;
   for (int i = 0; i < pxy_thetas.size(); i++) {
     double theta = pxy_thetas[i];
@@ -822,15 +816,15 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
 
   int num_p_points = NUM_PROXY_POINTS;
   ki_Mat pxy = get_proxy_mat(node->center, NUM_PROXY_POINTS, node->side_length
-                             * sqrt(domain_dimension)*RADIUS_RATIO, active_box);
+                             * sqrt(domain_dimension) * RADIUS_RATIO, active_box);
   // Now all the matrices are gathered, put them into mat.
   ki_Mat mat(2 * inner_circle.size() + pxy.height(), active_box.size());
 
   std::vector<int> update_indices;
-  for (int idx : node->dof_lists.active_box) {
-    update_indices.push_back(idx);
-  }
-
+  update_indices.insert(update_indices.end(), node->dof_lists.active_box.begin(),
+                        node->dof_lists.active_box.end());
+  update_indices.insert(update_indices.end(), inner_circle.begin(),
+                        inner_circle.end());
   // TODO(HIF) this is inefficient! make get_update nonsymmetric
   for (int idx : inner_circle) {
     update_indices.push_back(idx);

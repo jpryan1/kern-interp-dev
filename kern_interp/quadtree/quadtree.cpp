@@ -930,10 +930,6 @@ void get_half_level_schur_updates(ki_Mat * updates,
   }
 
   for (QuadTreeNode* containing_node : node->containing_nodes) {
-    if (containing_node->level != node->partner_level) {
-      std::cout << "Something happened that shouldn't have" << std::endl;
-      exit(0);
-    }
     if (containing_node->compressed) get_update(updates, BN, containing_node,
           visited_nodes);
     get_descendents_updates(updates, BN,

@@ -57,7 +57,6 @@ struct QuadTreeNode {
   std::vector<QuadTreeNode*> neighbors;
 
   InteractionLists dof_lists;
-  InteractionLists post_hif_dof_lists;
   // For inverse operator
   ki_Mat T, L, U, X_rr, schur_update, X_rr_lu;
 
