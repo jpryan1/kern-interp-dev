@@ -96,6 +96,8 @@ struct Kernel {
                        const std::vector<int> & box_inds) const;
   ki_Mat get_id_mat(const QuadTree* tree,
                     const HalfLevelNode* node) const;
+  ki_Mat get_id_mat(const QuadTree* tree,
+                    const ThirdLevelNode* node) const;
 
   ki_Mat get_3d(const std::vector<int>& tgt_inds,
                 const std::vector<int>& src_inds, bool forward, bool parallel) const;

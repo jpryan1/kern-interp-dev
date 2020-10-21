@@ -8,6 +8,8 @@
 #include "kern_interp/skel_factorization/skel_factorization.h"
 #include "kern_interp/kernel/kernel.h"
 
+#define USING_HIF 0
+
 namespace kern_interp {
 
 
@@ -77,6 +79,31 @@ int SkelFactorization::id_compress(const Kernel& kernel,
 }
 
 
+// TODO(John) again this is just redef of above for new type
+int SkelFactorization::id_compress(const Kernel& kernel,
+                                   const QuadTree* tree,
+                                   ThirdLevelNode* node) {
+
+  assert(node != nullptr && "InterpolativeDecomposition fails on null node.");
+  assert(node->dof_lists.active_box.size() > 0 &&
+         "Num of DOFs must be positive in InterpolativeDecomposition.");
+
+  ki_Mat pxy = kernel.get_id_mat(tree, node);
+  if (pxy.height() == 0) {
+    return 0;
+  }
+  std::vector<int> p;
+  int numskel = pxy.id(&p, &node->T, id_tol);
+  if (numskel == 0) {
+    return 0;
+  }
+  node->dof_lists.set_rs_ranges(p, node->T.height(), node->T.width());
+  node->dof_lists.set_skelnear_range();
+
+  return node->T.width();
+}
+
+
 void SkelFactorization::decouple(const Kernel& kernel, QuadTreeNode* node) {
   // height of Z is number of skeleton columns
   int num_redundant = node->T.width();
@@ -88,7 +115,7 @@ void SkelFactorization::decouple(const Kernel& kernel, QuadTreeNode* node) {
   }
   // Note that BN has all currently deactivated DoFs removed.
   ki_Mat update(BN.size(), BN.size());
-  get_descendents_updates(&update, BN, node, nullptr,
+  get_descendents_updates(&update, BN, BN, node, nullptr,
                           nullptr);
   ki_Mat K_BN = kernel(BN, BN) - update;
 
@@ -105,17 +132,19 @@ void SkelFactorization::decouple(const Kernel& kernel, QuadTreeNode* node) {
   node->X_rr = K_BN(r, r) - node->T.transpose() * K_BN(s, r)
                - K_BN_r_sn * node->T;
   ki_Mat K_BN_sn_r = K_BN(s, r) - K_BN(s, s) * node->T;
-
   node->X_rr.LU_factorize(&node->X_rr_lu, &node->X_rr_piv);
-
   node->X_rr_is_LU_factored = true;
   node->L = ki_Mat(sn.size(),  num_redundant);
   node->U = ki_Mat(num_redundant, sn.size());
   node->X_rr_lu.right_multiply_inverse(K_BN_sn_r, node->X_rr_piv, &node->L);
   node->X_rr_lu.left_multiply_inverse(K_BN_r_sn, node->X_rr_piv,  &node->U);
   node->schur_update = node->L * K_BN_r_sn;
-
   node->compressed = true;
+  // std::cout << "posting schur updates for 1node " << node->center[0] << " " <<
+  //           node->center[1] << " " << node->center[2] << " to " << std::endl;
+  // for (int i = 0; i < num_skel; i++) {
+  //   std::cout << node->dof_lists.skel[i] << ", ";
+  // } std::cout << std::endl;
 }
 
 
@@ -130,14 +159,56 @@ void SkelFactorization::decouple(const Kernel& kernel, HalfLevelNode* node) {
   }
   // Note that BN has all currently deactivated DoFs removed.
   ki_Mat update(BN.size(), BN.size());
-  get_half_level_schur_updates(&update, BN, node, nullptr, nullptr);
+  get_half_level_schur_updates(&update, BN,  BN,node, nullptr, nullptr, nullptr);
   ki_Mat K_BN = kernel(BN, BN) - update;
 
   // Generate various index ranges within BN
   std::vector<int> s, r, n, sn;
-
   for (int i = 0; i < num_skel; i++) {
+    s.push_back(node->dof_lists.permutation[i]);
+    sn.push_back(node->dof_lists.permutation[i]);
+  }
+  for (int i = 0; i < num_redundant; i++) {
+    r.push_back(node->dof_lists.permutation[i + num_skel]);
+  }
+  ki_Mat K_BN_r_sn = K_BN(r, s) - node->T.transpose() * K_BN(s, s);
+  node->X_rr = K_BN(r, r) - node->T.transpose() * K_BN(s, r)
+               - K_BN_r_sn * node->T;
+  ki_Mat K_BN_sn_r = K_BN(s, r) - K_BN(s, s) * node->T;
+  node->X_rr.LU_factorize(&node->X_rr_lu, &node->X_rr_piv);
+  node->X_rr_is_LU_factored = true;
+  node->L = ki_Mat(sn.size(),  num_redundant);
+  node->U = ki_Mat(num_redundant, sn.size());
+  node->X_rr_lu.right_multiply_inverse(K_BN_sn_r, node->X_rr_piv, &node->L);
+  node->X_rr_lu.left_multiply_inverse(K_BN_r_sn, node->X_rr_piv,  &node->U);
+  node->schur_update = node->L * K_BN_r_sn;
+  // std::cout << "posting schur updates for 2node " << node->center[0] << " " <<
+  //           node->center[1] << " " << node->center[2] << " to " << std::endl;
+  // for (int i = 0; i < num_skel; i++) {
+  //   std::cout << node->dof_lists.skel[i] << ", ";
+  // } std::cout << std::endl;
+  node->compressed = true;
+}
 
+
+
+void SkelFactorization::decouple(const Kernel& kernel, ThirdLevelNode* node) {
+  // height of Z is number of skeleton columns
+  int num_redundant = node->T.width();
+  int num_skel      = node->T.height();
+  // GENERATE K_BN,BN
+  std::vector<int> BN;
+  for (int idx : node->dof_lists.active_box) {
+    BN.push_back(idx);
+  }
+  // Note that BN has all currently deactivated DoFs removed.
+  ki_Mat update(BN.size(), BN.size());
+  get_third_level_schur_updates(&update, BN,  BN,node, nullptr, nullptr, nullptr);
+  ki_Mat K_BN = kernel(BN, BN) - update;
+
+  // Generate various index ranges within BN
+  std::vector<int> s, r, n, sn;
+  for (int i = 0; i < num_skel; i++) {
     s.push_back(node->dof_lists.permutation[i]);
     sn.push_back(node->dof_lists.permutation[i]);
   }
@@ -156,11 +227,14 @@ void SkelFactorization::decouple(const Kernel& kernel, HalfLevelNode* node) {
   node->U = ki_Mat(num_redundant, sn.size());
   node->X_rr_lu.right_multiply_inverse(K_BN_sn_r, node->X_rr_piv, &node->L);
   node->X_rr_lu.left_multiply_inverse(K_BN_r_sn, node->X_rr_piv,  &node->U);
+  // std::cout << "posting schur updates for 3node " << node->center[0] << " " <<
+  //           node->center[1] << " " << node->center[2] << " to " << std::endl;
+  // for (int i = 0; i < num_skel; i++) {
+  //   std::cout << node->dof_lists.skel[i] << ", ";
+  // } std::cout << std::endl;
   node->schur_update = node->L * K_BN_r_sn;
-
   node->compressed = true;
 }
-
 
 void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
   int node_counter = 0;
@@ -171,7 +245,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
   int nodes_left = tree->solution_dimension * (kernel.boundary_points_.size() /
                    tree->domain_dimension);
   int prev_nodes_left = nodes_left;
-  for (int level = lvls - 1; level > 1 ; level--) {
+  for (int level = lvls - 1; level >= 1 ; level--) {
     end = omp_get_wtime();
     prev_nodes_left = nodes_left;
     std::cout << "Nodes left " << nodes_left << std::endl;
@@ -197,26 +271,58 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
       node_counter++;
     }
     std::cout << "nodes left after full level " << nodes_left << std::endl;
+    if (!USING_HIF) continue;
     tree->populate_half_level_dofs(level);
+
     HalfLevel* current_half_level = tree->levels[level]->half_level;
 
+    int halfdofs = 0;
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_half_level->nodes.size(); n++) {
       HalfLevelNode* current_half_level_node = current_half_level->nodes[n];
-
+      halfdofs += current_half_level_node->dof_lists.active_box.size();
       if (current_half_level_node->compressed
           || current_half_level_node->dof_lists.active_box.size() <
           MIN_DOFS_TO_COMPRESS / 4) {
         continue;
       }
+      // std::cout<<"Tried recompression on halfbox with "<<current_half_level_node->dof_lists.active_box.size() <<" dofs"<<std::endl;
+
       if (id_compress(kernel, tree, current_half_level_node) == 0) {
+        // std::cout<<"failed"<<std::endl;
         continue;
       }
+      // std::cout<<"Successfully removed "<<current_half_level_node->T.width()<<std::endl;
       nodes_left -= current_half_level_node->T.width();
       decouple(kernel, current_half_level_node);
       node_counter++;
     }
-    std::cout << "nodes left after halflevel " << nodes_left << std::endl;
+    std::cout << "nodes left after halflevel " << nodes_left << " found " <<
+              halfdofs << " to compress" << std::endl;
+
+    if (kernel.domain_dimension == 3) {
+      tree->populate_third_level_dofs(level);
+      ThirdLevel* current_third_level = tree->levels[level]->third_level;
+      int thirddofs = 0;
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = 0; n < current_third_level->nodes.size(); n++) {
+        ThirdLevelNode* current_third_level_node = current_third_level->nodes[n];
+        thirddofs += current_third_level_node->dof_lists.active_box.size();
+        if (current_third_level_node->compressed
+            || current_third_level_node->dof_lists.active_box.size() <
+            MIN_DOFS_TO_COMPRESS / 4) {
+          continue;
+        }
+        if (id_compress(kernel, tree, current_third_level_node) == 0) {
+          continue;
+        }
+        nodes_left -= current_third_level_node->T.width();
+        decouple(kernel, current_third_level_node);
+        node_counter++;
+      }
+      std::cout << "nodes left after thirdlevel " << nodes_left << " found " <<
+                thirddofs << " to compress" << std::endl;
+    }
   }
   end = omp_get_wtime();
   // std::cout << "Last level " << (end - start) << std::endl;
@@ -228,7 +334,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
 
   if (allskel.size() > 0) {
     ki_Mat allskel_updates = ki_Mat(allskel.size(), allskel.size());
-    get_descendents_updates(&allskel_updates, allskel, tree->root, nullptr,
+    get_descendents_updates(&allskel_updates, allskel,allskel, tree->root, nullptr,
                             nullptr);
     start = omp_get_wtime();
     tree->allskel_mat = kernel(allskel, allskel, false, true) - allskel_updates;
@@ -249,13 +355,20 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
 // std::cout<<"all skel cond "<<tree->allskel_mat.condition_number()<<std::endl;
   std::vector<QuadTreeNode*> all_nodes;
   std::vector<HalfLevelNode*> all_half_nodes;
+  std::vector<ThirdLevelNode*> all_third_nodes;
   for (int level = lvls - 1; level >= 0; level--) {
     QuadTreeLevel* current_level = tree->levels[level];
     for (int n = 0; n < current_level->nodes.size(); n++) {
       all_nodes.push_back(current_level->nodes[n]);
     }
+    if (!USING_HIF) continue;
     for (int n = 0; n < current_level->half_level->nodes.size(); n++) {
       all_half_nodes.push_back(current_level->half_level->nodes[n]);
+    }
+    if (kernel.domain_dimension == 3) {
+      for (int n = 0; n < current_level->third_level->nodes.size(); n++) {
+        all_third_nodes.push_back(current_level->third_level->nodes[n]);
+      }
     }
   }
 
@@ -310,7 +423,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                          current_node->dof_lists.skelnear, false);
     }
 
-
+    if (!USING_HIF) continue;
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_level->half_level->nodes.size(); n++) {
       HalfLevelNode* current_node = current_level->half_level->nodes[n];
@@ -325,6 +438,22 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                          current_node->dof_lists.skelnear, false);
     }
 
+    if (kernel.domain_dimension == 3) {
+
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = 0; n < current_level->third_level->nodes.size(); n++) {
+        ThirdLevelNode* current_node = current_level->third_level->nodes[n];
+        if (!current_node->compressed) {
+          continue;
+        }
+        apply_sweep_matrix(-current_node->T, &modified_U,
+                           current_node->dof_lists.skel,
+                           current_node->dof_lists.redundant, true);
+        apply_sweep_matrix(-current_node->L, &modified_U,
+                           current_node->dof_lists.redundant,
+                           current_node->dof_lists.skelnear, false);
+      }
+    }
 
   }
 
@@ -346,7 +475,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                          current_node->dof_lists.skelnear,
                          true);
     }
-
+    if (!USING_HIF) continue;
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_level->half_level->nodes.size(); n++) {
       HalfLevelNode* current_node = current_level->half_level->nodes[n];
@@ -361,6 +490,24 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                          current_node->dof_lists.redundant,
                          current_node->dof_lists.skelnear,
                          true);
+    }
+    if (kernel.domain_dimension == 3) {
+
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = 0; n < current_level->third_level->nodes.size(); n++) {
+        ThirdLevelNode* current_node = current_level->third_level->nodes[n];
+        if (!current_node->compressed) {
+          continue;
+        }
+        apply_sweep_matrix(-current_node->T, &modified_Psi,
+                           current_node->dof_lists.skel,
+                           current_node->dof_lists.redundant,
+                           true);
+        apply_sweep_matrix(-current_node->U, &modified_Psi,
+                           current_node->dof_lists.redundant,
+                           current_node->dof_lists.skelnear,
+                           true);
+      }
     }
   }
 
@@ -383,25 +530,43 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                           &Dinv_C_nonzero,
                           small_redundants);
   }
-
-  #pragma omp parallel for num_threads(fact_threads)
-  for (int n = 0; n < all_half_nodes.size(); n++) {
-    HalfLevelNode* current_node = all_half_nodes[n];
-
-    if (current_node->dof_lists.redundant.size() == 0) continue;
-    if (!current_node->compressed) {
-      continue;
+  if (USING_HIF){
+    #pragma omp parallel for num_threads(fact_threads)
+    for (int n = 0; n < all_half_nodes.size(); n++) {
+      HalfLevelNode* current_node = all_half_nodes[n];
+  
+      if (current_node->dof_lists.redundant.size() == 0) continue;
+      if (!current_node->compressed) {
+        continue;
+      }
+      std::vector<int> small_redundants = big_to_small(
+                                            current_node->dof_lists.redundant,
+                                            red_big2small);
+      assert(current_node->X_rr_is_LU_factored);
+      apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
+                            &Dinv_C_nonzero,
+                            small_redundants);
     }
-    std::vector<int> small_redundants = big_to_small(
-                                          current_node->dof_lists.redundant,
-                                          red_big2small);
-    assert(current_node->X_rr_is_LU_factored);
-    apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
-                          &Dinv_C_nonzero,
-                          small_redundants);
+    if (kernel.domain_dimension == 3) {
+  
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = 0; n < all_third_nodes.size(); n++) {
+        ThirdLevelNode* current_node = all_third_nodes[n];
+  
+        if (current_node->dof_lists.redundant.size() == 0) continue;
+        if (!current_node->compressed) {
+          continue;
+        }
+        std::vector<int> small_redundants = big_to_small(
+                                              current_node->dof_lists.redundant,
+                                              red_big2small);
+        assert(current_node->X_rr_is_LU_factored);
+        apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
+                              &Dinv_C_nonzero,
+                              small_redundants);
+      }
+    }
   }
-
-
 
   ki_Mat ident(tree->Psi.height(), tree->Psi.height());
   if (kernel.domain_dimension == 2) {
@@ -487,13 +652,25 @@ void SkelFactorization::solve(const QuadTree & quadtree, ki_Mat * x,
     }
   }
   std::vector<HalfLevelNode*> all_half_nodes;
-  for (int level = lvls - 1; level >= 0; level--) {
-    HalfLevel* current_level = quadtree.levels[level]->half_level;
-    for (int n = 0; n < current_level->nodes.size(); n++) {
-      all_half_nodes.push_back(current_level->nodes[n]);
+  std::vector<ThirdLevelNode*> all_third_nodes;
+
+  if (USING_HIF) {
+    for (int level = lvls - 1; level >= 0; level--) {
+      HalfLevel* current_level = quadtree.levels[level]->half_level;
+      for (int n = 0; n < current_level->nodes.size(); n++) {
+        all_half_nodes.push_back(current_level->nodes[n]);
+      }
+    }
+    if (quadtree.domain_dimension == 3) {
+
+      for (int level = lvls - 1; level >= 0; level--) {
+        ThirdLevel* current_level = quadtree.levels[level]->third_level;
+        for (int n = 0; n < current_level->nodes.size(); n++) {
+          all_third_nodes.push_back(current_level->nodes[n]);
+        }
+      }
     }
   }
-
   for (int level = lvls - 1; level >= 0; level--) {
     QuadTreeLevel* current_level = quadtree.levels[level];
     #pragma omp parallel for num_threads(fact_threads)
@@ -509,7 +686,7 @@ void SkelFactorization::solve(const QuadTree & quadtree, ki_Mat * x,
                          current_node->dof_lists.redundant,
                          current_node->dof_lists.skelnear, false);
     }
-
+    if (!USING_HIF) continue;
     HalfLevel* current_half_level = quadtree.levels[level]->half_level;
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_half_level->nodes.size(); n++) {
@@ -524,7 +701,23 @@ void SkelFactorization::solve(const QuadTree & quadtree, ki_Mat * x,
                          current_node->dof_lists.redundant,
                          current_node->dof_lists.skelnear, false);
     }
+    if (quadtree.domain_dimension == 3) {
 
+      ThirdLevel* current_third_level = quadtree.levels[level]->third_level;
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = 0; n < current_third_level->nodes.size(); n++) {
+        ThirdLevelNode* current_node = current_third_level->nodes[n];
+        if (!current_node->compressed) {
+          continue;
+        }
+        apply_sweep_matrix(-current_node->T, x,
+                           current_node->dof_lists.skel,
+                           current_node->dof_lists.redundant, true);
+        apply_sweep_matrix(-current_node->L, x,
+                           current_node->dof_lists.redundant,
+                           current_node->dof_lists.skelnear, false);
+      }
+    }
   }
 
 
@@ -540,22 +733,36 @@ void SkelFactorization::solve(const QuadTree & quadtree, ki_Mat * x,
     apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv, x,
                           current_node->dof_lists.redundant);
   }
-
-  #pragma omp parallel for num_threads(fact_threads)
-  for (int n = 0; n < all_half_nodes.size(); n++) {
-    HalfLevelNode* current_node = all_half_nodes[n];
-    if (current_node->dof_lists.redundant.size() == 0) continue;
-    if (!current_node->compressed) {
-      continue;
+  if (USING_HIF){ 
+    #pragma omp parallel for num_threads(fact_threads)
+    for (int n = 0; n < all_half_nodes.size(); n++) {
+      HalfLevelNode* current_node = all_half_nodes[n];
+      if (current_node->dof_lists.redundant.size() == 0) continue;
+      if (!current_node->compressed) {
+        continue;
+      }
+      assert(current_node->X_rr_is_LU_factored);
+  
+      apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv, x,
+                            current_node->dof_lists.redundant);
     }
-    assert(current_node->X_rr_is_LU_factored);
-
-    apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv, x,
-                          current_node->dof_lists.redundant);
+    if (quadtree.domain_dimension == 3) {
+  
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = 0; n < all_third_nodes.size(); n++) {
+        ThirdLevelNode* current_node = all_third_nodes[n];
+        if (current_node->dof_lists.redundant.size() == 0) continue;
+        if (!current_node->compressed) {
+          continue;
+        }
+        assert(current_node->X_rr_is_LU_factored);
+  
+        apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv, x,
+                              current_node->dof_lists.redundant);
+      }
+    }
+  
   }
-
-
-
   std::vector<int> allskel = quadtree.root->dof_lists.active_box;
   if (allskel.size() > 0) {
     apply_diag_inv_matrix(quadtree.allskel_mat_lu, quadtree.allskel_mat_piv, x,
@@ -564,23 +771,41 @@ void SkelFactorization::solve(const QuadTree & quadtree, ki_Mat * x,
 
 
   for (int level = 0; level < lvls; level++) {
+    if (quadtree.domain_dimension == 3) {
+      if (USING_HIF) {
+        ThirdLevel* current_third_level = quadtree.levels[level]->third_level;
+        #pragma omp parallel for num_threads(fact_threads)
+        for (int n = current_third_level->nodes.size() - 1; n >= 0; n--) {
+          ThirdLevelNode* current_node = current_third_level->nodes[n];
+          if (!current_node->compressed) {
+            continue;
+          }
+          apply_sweep_matrix(-current_node->U, x,
+                             current_node->dof_lists.skelnear,
+                             current_node->dof_lists.redundant, false);
+          apply_sweep_matrix(-current_node->T, x,
+                             current_node->dof_lists.redundant,
+                             current_node->dof_lists.skel,
+                             false);
+        }
 
-    HalfLevel* current_half_level = quadtree.levels[level]->half_level;
-    #pragma omp parallel for num_threads(fact_threads)
-    for (int n = current_half_level->nodes.size() - 1; n >= 0; n--) {
-      HalfLevelNode* current_node = current_half_level->nodes[n];
-      if (!current_node->compressed) {
-        continue;
       }
-      apply_sweep_matrix(-current_node->U, x,
-                         current_node->dof_lists.skelnear,
-                         current_node->dof_lists.redundant, false);
-      apply_sweep_matrix(-current_node->T, x,
-                         current_node->dof_lists.redundant,
-                         current_node->dof_lists.skel,
-                         false);
+      HalfLevel* current_half_level = quadtree.levels[level]->half_level;
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = current_half_level->nodes.size() - 1; n >= 0; n--) {
+        HalfLevelNode* current_node = current_half_level->nodes[n];
+        if (!current_node->compressed) {
+          continue;
+        }
+        apply_sweep_matrix(-current_node->U, x,
+                           current_node->dof_lists.skelnear,
+                           current_node->dof_lists.redundant, false);
+        apply_sweep_matrix(-current_node->T, x,
+                           current_node->dof_lists.redundant,
+                           current_node->dof_lists.skel,
+                           false);
+      }
     }
-
     QuadTreeLevel* current_level = quadtree.levels[level];
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = current_level->nodes.size() - 1; n >= 0; n--) {
@@ -613,14 +838,29 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
     }
   }
 
+
   std::vector<HalfLevelNode*> all_half_nodes;
-  for (int level = lvls - 1; level >= 0; level--) {
-    HalfLevel* current_half_level = quadtree.levels[level]->half_level;
-    for (int n = 0; n < current_half_level->nodes.size(); n++) {
-      all_half_nodes.push_back(current_half_level->nodes[n]);
+  std::vector<ThirdLevelNode*> all_third_nodes;
+
+  if (USING_HIF) {
+    for (int level = lvls - 1; level >= 0; level--) {
+      HalfLevel* current_half_level = quadtree.levels[level]->half_level;
+      for (int n = 0; n < current_half_level->nodes.size(); n++) {
+        all_half_nodes.push_back(current_half_level->nodes[n]);
+      }
+    }
+
+
+    if (quadtree.domain_dimension == 3) {
+
+      for (int level = lvls - 1; level >= 0; level--) {
+        ThirdLevel* current_third_level = quadtree.levels[level]->third_level;
+        for (int n = 0; n < current_third_level->nodes.size(); n++) {
+          all_third_nodes.push_back(current_third_level->nodes[n]);
+        }
+      }
     }
   }
-
   std::vector<int> allskel = quadtree.root->dof_lists.active_box;
   std::vector<int> sorted_allskel = allskel;
   std::sort(sorted_allskel.begin(), sorted_allskel.end());
@@ -670,7 +910,7 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
                          current_node->dof_lists.redundant,
                          current_node->dof_lists.skelnear, false);
     }
-
+    if (!USING_HIF) continue;
 
     HalfLevel* current_half_level = quadtree.levels[level]->half_level;
 
@@ -692,6 +932,30 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
       apply_sweep_matrix(-current_node->L, &modified_U,
                          current_node->dof_lists.redundant,
                          current_node->dof_lists.skelnear, false);
+    }
+    if (quadtree.domain_dimension == 3) {
+
+      ThirdLevel* current_third_level = quadtree.levels[level]->third_level;
+
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = 0; n < current_third_level->nodes.size(); n++) {
+        ThirdLevelNode* current_node = current_third_level->nodes[n];
+        if (!current_node->compressed) {
+          continue;
+        }
+        apply_sweep_matrix(-current_node->T, mu,
+                           current_node->dof_lists.skel,
+                           current_node->dof_lists.redundant, true);
+        apply_sweep_matrix(-current_node->L, mu,
+                           current_node->dof_lists.redundant,
+                           current_node->dof_lists.skelnear, false);
+        apply_sweep_matrix(-current_node->T, &modified_U,
+                           current_node->dof_lists.skel,
+                           current_node->dof_lists.redundant, true);
+        apply_sweep_matrix(-current_node->L, &modified_U,
+                           current_node->dof_lists.redundant,
+                           current_node->dof_lists.skelnear, false);
+      }
     }
   }
   // After the result of the first sweep matrices, grab w and z.
@@ -716,7 +980,7 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
                          current_node->dof_lists.skelnear,
                          true);
     }
-
+    if (!USING_HIF) continue;
     HalfLevel* current_half_level = quadtree.levels[level]->half_level;
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_half_level->nodes.size(); n++) {
@@ -732,6 +996,25 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
                          current_node->dof_lists.redundant,
                          current_node->dof_lists.skelnear,
                          true);
+    }
+    if (quadtree.domain_dimension == 3) {
+
+      ThirdLevel* current_third_level = quadtree.levels[level]->third_level;
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = 0; n < current_third_level->nodes.size(); n++) {
+        ThirdLevelNode* current_node = current_third_level->nodes[n];
+        if (!current_node->compressed) {
+          continue;
+        }
+        apply_sweep_matrix(-current_node->T, &modified_Psi,
+                           current_node->dof_lists.skel,
+                           current_node->dof_lists.redundant,
+                           true);
+        apply_sweep_matrix(-current_node->U, &modified_Psi,
+                           current_node->dof_lists.redundant,
+                           current_node->dof_lists.skelnear,
+                           true);
+      }
     }
   }
 
@@ -751,22 +1034,39 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
     apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
                           &Dinv_w, small_redundants);
   }
-
-  #pragma omp parallel for num_threads(fact_threads)
-  for (int n = 0; n < all_half_nodes.size(); n++) {
-    HalfLevelNode* current_node = all_half_nodes[n];
-    if (current_node->dof_lists.redundant.size() == 0) continue;
-    if (!current_node->compressed) {
-      continue;
+  if (USING_HIF) {
+    #pragma omp parallel for num_threads(fact_threads)
+    for (int n = 0; n < all_half_nodes.size(); n++) {
+      HalfLevelNode* current_node = all_half_nodes[n];
+      if (current_node->dof_lists.redundant.size() == 0) continue;
+      if (!current_node->compressed) {
+        continue;
+      }
+      std::vector<int> small_redundants = big_to_small(
+                                            current_node->dof_lists.redundant,
+                                            red_big2small);
+      assert(current_node->X_rr_is_LU_factored);
+      apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
+                            &Dinv_w, small_redundants);
     }
-    std::vector<int> small_redundants = big_to_small(
-                                          current_node->dof_lists.redundant,
-                                          red_big2small);
-    assert(current_node->X_rr_is_LU_factored);
-    apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
-                          &Dinv_w, small_redundants);
-  }
+    if (quadtree.domain_dimension == 3) {
 
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = 0; n < all_third_nodes.size(); n++) {
+        ThirdLevelNode* current_node = all_third_nodes[n];
+        if (current_node->dof_lists.redundant.size() == 0) continue;
+        if (!current_node->compressed) {
+          continue;
+        }
+        std::vector<int> small_redundants = big_to_small(
+                                              current_node->dof_lists.redundant,
+                                              red_big2small);
+        assert(current_node->X_rr_is_LU_factored);
+        apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
+                              &Dinv_w, small_redundants);
+      }
+    }
+  }
 
   ki_Mat M(allskel.size() + quadtree.Psi.height(), 1);
   M.set_submatrix(0, allskel.size(), 0, 1, z);
@@ -793,40 +1093,80 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
     apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
                           &Dinv_N, small_redundants);
   }
+  if (USING_HIF) {
+    #pragma omp parallel for num_threads(fact_threads)
+    for (int n = 0; n < all_half_nodes.size(); n++) {
+      HalfLevelNode* current_node = all_half_nodes[n];
+      if (current_node->dof_lists.redundant.size() == 0) continue;
+      if (!current_node->compressed) {
+        continue;
+      }
+      std::vector<int> small_redundants = big_to_small(
+                                            current_node->dof_lists.redundant,
+                                            red_big2small);
+      assert(current_node->X_rr_is_LU_factored);
 
-  #pragma omp parallel for num_threads(fact_threads)
-  for (int n = 0; n < all_half_nodes.size(); n++) {
-    HalfLevelNode* current_node = all_half_nodes[n];
-    if (current_node->dof_lists.redundant.size() == 0) continue;
-    if (!current_node->compressed) {
-      continue;
+      apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
+                            &Dinv_N, small_redundants);
     }
-    std::vector<int> small_redundants = big_to_small(
-                                          current_node->dof_lists.redundant,
-                                          red_big2small);
-    assert(current_node->X_rr_is_LU_factored);
 
-    apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
-                          &Dinv_N, small_redundants);
+    if (quadtree.domain_dimension == 3) {
+
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = 0; n < all_third_nodes.size(); n++) {
+        ThirdLevelNode* current_node = all_third_nodes[n];
+        if (current_node->dof_lists.redundant.size() == 0) continue;
+        if (!current_node->compressed) {
+          continue;
+        }
+        std::vector<int> small_redundants = big_to_small(
+                                              current_node->dof_lists.redundant,
+                                              red_big2small);
+        assert(current_node->X_rr_is_LU_factored);
+
+        apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
+                              &Dinv_N, small_redundants);
+      }
+    }
   }
   mu->set_submatrix(allredundant, 0, 1, Dinv_N);
   mu->set_submatrix(allskel, 0, 1, y(0, allskel.size(), 0, 1));
 
   for (int level = 0; level < lvls; level++) {
-    HalfLevel* current_half_level = quadtree.levels[level]->half_level;
-    #pragma omp parallel for num_threads(fact_threads)
-    for (int n = current_half_level->nodes.size() - 1; n >= 0; n--) {
-      HalfLevelNode* current_node = current_half_level->nodes[n];
-      if (!current_node->compressed) {
-        continue;
+    if (USING_HIF) {
+      if (quadtree.domain_dimension == 3) {
+
+        ThirdLevel* current_third_level = quadtree.levels[level]->third_level;
+        #pragma omp parallel for num_threads(fact_threads)
+        for (int n = current_third_level->nodes.size() - 1; n >= 0; n--) {
+          ThirdLevelNode* current_node = current_third_level->nodes[n];
+          if (!current_node->compressed) {
+            continue;
+          }
+          apply_sweep_matrix(-current_node->U, mu,
+                             current_node->dof_lists.skelnear,
+                             current_node->dof_lists.redundant, false);
+          apply_sweep_matrix(-current_node->T, mu,
+                             current_node->dof_lists.redundant,
+                             current_node->dof_lists.skel,
+                             false);
+        }
       }
-      apply_sweep_matrix(-current_node->U, mu,
-                         current_node->dof_lists.skelnear,
-                         current_node->dof_lists.redundant, false);
-      apply_sweep_matrix(-current_node->T, mu,
-                         current_node->dof_lists.redundant,
-                         current_node->dof_lists.skel,
-                         false);
+      HalfLevel* current_half_level = quadtree.levels[level]->half_level;
+      #pragma omp parallel for num_threads(fact_threads)
+      for (int n = current_half_level->nodes.size() - 1; n >= 0; n--) {
+        HalfLevelNode* current_node = current_half_level->nodes[n];
+        if (!current_node->compressed) {
+          continue;
+        }
+        apply_sweep_matrix(-current_node->U, mu,
+                           current_node->dof_lists.skelnear,
+                           current_node->dof_lists.redundant, false);
+        apply_sweep_matrix(-current_node->T, mu,
+                           current_node->dof_lists.redundant,
+                           current_node->dof_lists.skel,
+                           false);
+      }
     }
 
     QuadTreeLevel* current_level = quadtree.levels[level];
