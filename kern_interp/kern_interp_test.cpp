@@ -110,26 +110,26 @@ void check_solve_err(const Kernel& kernel, Boundary* boundary) {
 // }
 
 
-TEST(IeSolverTest, UniformDistBackwardError) {
-  srand(0);
-  std::unique_ptr<Boundary> boundary =
-    std::unique_ptr<Boundary>(new UniformDist());
-  boundary->initialize(pow(2, 13),  BoundaryCondition::DEFAULT);
-  Kernel kernel(1, 2, Kernel::Pde::GAUSS, boundary.get(),
-                std::vector <double>());
-  check_solve_err(kernel, boundary.get());
-}
-
-
-// TEST(IeSolverTest, LaplaceNeumannAnnulusBackwardError) {
+// TEST(IeSolverTest, UniformDistBackwardError) {
 //   srand(0);
 //   std::unique_ptr<Boundary> boundary =
-//     std::unique_ptr<Boundary>(new Annulus());
-//   boundary->initialize(pow(2, 10),  BoundaryCondition::DEFAULT);
-//   Kernel kernel(1, 2, Kernel::Pde::LAPLACE_NEUMANN, boundary.get(),
+//     std::unique_ptr<Boundary>(new UniformDist());
+//   boundary->initialize(pow(2, 12),  BoundaryCondition::DEFAULT);
+//   Kernel kernel(1, 2, Kernel::Pde::GAUSS, boundary.get(),
 //                 std::vector <double>());
 //   check_solve_err(kernel, boundary.get());
 // }
+
+
+TEST(IeSolverTest, LaplaceNeumannAnnulusBackwardError) {
+  srand(0);
+  std::unique_ptr<Boundary> boundary =
+    std::unique_ptr<Boundary>(new Annulus());
+  boundary->initialize(pow(2, 10),  BoundaryCondition::DEFAULT);
+  Kernel kernel(1, 2, Kernel::Pde::LAPLACE_NEUMANN, boundary.get(),
+                std::vector <double>());
+  check_solve_err(kernel, boundary.get());
+}
 
 
 

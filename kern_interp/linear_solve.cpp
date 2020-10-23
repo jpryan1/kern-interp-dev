@@ -11,7 +11,7 @@
 #include "kern_interp/quadtree/quadtree.h"
 #include "kern_interp/linear_solve.h"
 
-#define BLENDER_TESTING 1
+#define BLENDER_TESTING 0
 
 namespace kern_interp {
 

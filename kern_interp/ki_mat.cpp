@@ -541,10 +541,8 @@ int ki_Mat::id(std::vector<int>* p, ki_Mat* Z, double tol) const {
          && "Width>=Height in ID, maybe this should happen, but probably a bug");
   int skel = 0;
   double thresh = fabs(tol * cpy.get(0, 0));
-  int smaller = std::min(height_, width_);
-  for (int i = 1; i < smaller; i++) {
+  for (int i = 1; i < width_; i++) {
     // check if R_{i,i} / R_{0,0} < tol
-    // std::cout << i << " out of " << width_ << std::endl;
     if (fabs(cpy.get(i, i)) < thresh) {
       skel = i;
       break;

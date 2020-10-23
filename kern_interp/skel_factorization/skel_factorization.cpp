@@ -8,7 +8,7 @@
 #include "kern_interp/skel_factorization/skel_factorization.h"
 #include "kern_interp/kernel/kernel.h"
 
-#define USING_HIF 0
+#define USING_HIF 1
 
 namespace kern_interp {
 
@@ -141,7 +141,6 @@ void SkelFactorization::decouple(const Kernel& kernel, MidLevelNode* node) {
   ki_Mat update(BN.size(), BN.size());
   get_mid_level_schur_updates(&update, BN,  BN, node, nullptr, nullptr,
                               nullptr);
-
   ki_Mat K_BN = kernel(BN, BN) - update;
 
   // Generate various index ranges within BN
@@ -183,33 +182,33 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
   int nodes_left = tree->solution_dimension * (kernel.boundary_points_.size() /
                    tree->domain_dimension);
   int prev_nodes_left = nodes_left;
-  for (int level = lvls - 1; level >= 1 ; level--) {
+  for (int level = lvls - 1; level >= lvls - 1 ; level--) {
     end = omp_get_wtime();
     prev_nodes_left = nodes_left;
     std::cout << "Nodes left " << nodes_left << std::endl;
     start = end;
     tree->remove_inactive_dofs_at_level(level);
     QuadTreeLevel* current_level = tree->levels[level];
-    #pragma omp parallel for num_threads(fact_threads)
-    for (int n = 0; n < current_level->nodes.size(); n++) {
-      QuadTreeNode* current_node = current_level->nodes[n];
+    // #pragma omp parallel for num_threads(fact_threads)
+    // for (int n = 0; n < current_level->nodes.size(); n++) {
+    //   QuadTreeNode* current_node = current_level->nodes[n];
 
-      if (current_node->compressed || current_node->dof_lists.active_box.size()
-          < MIN_DOFS_TO_COMPRESS) {
-        if (current_node->compressed) nodes_left -=
-            current_node->dof_lists.redundant.size();
-        continue;
-      }
-      double ids = omp_get_wtime();
-      if (id_compress(kernel, tree, current_node) == 0) {
-        continue;
-      }
-      double ide = omp_get_wtime();
-      nodes_left -= current_node->T.width();
-      // std::cout << "Took " << current_node->T.width() << " from node " << std::endl;
-      decouple(kernel, current_node);
-      node_counter++;
-    }
+    //   if (current_node->compressed || current_node->dof_lists.active_box.size()
+    //       < MIN_DOFS_TO_COMPRESS) {
+    //     if (current_node->compressed) nodes_left -=
+    //         current_node->dof_lists.redundant.size();
+    //     continue;
+    //   }
+    //   double ids = omp_get_wtime();
+    //   if (id_compress(kernel, tree, current_node) == 0) {
+    //     continue;
+    //   }
+    //   double ide = omp_get_wtime();
+    //   nodes_left -= current_node->T.width();
+    //   // std::cout << "Took " << current_node->T.width() << " from node " << std::endl;
+    //   decouple(kernel, current_node);
+    //   node_counter++;
+    // }
     std::cout << "nodes left after full level " << nodes_left << std::endl;
     if (!USING_HIF) continue;
     tree->populate_half_level_dofs(level);
@@ -217,7 +216,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
 
     int halfdofs = 0;
     #pragma omp parallel for num_threads(fact_threads)
-    for (int n = 0; n < current_half_level->nodes.size(); n++) {
+    for (int n = 0; n < 2; n++) { // current_half_level->nodes.size(); n++) {
       MidLevelNode* current_half_level_node = current_half_level->nodes[n];
       halfdofs += current_half_level_node->dof_lists.active_box.size();
       if (current_half_level_node->compressed
@@ -232,7 +231,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
       if (id_compress(kernel, tree, current_half_level_node) == 0) {
         // std::cout<<"failed"<<std::endl;
         continue;
-      }        
+      }
       // std::cout<<"Successfully removed "<<current_half_level_node->T.width()<<std::endl;
       nodes_left -= current_half_level_node->T.width();
 
@@ -292,7 +291,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                                    &tree->allskel_mat_piv);
     openblas_set_num_threads(1);
     double lufe = omp_get_wtime();
-    std::cout << "allskel lu done"<< std::endl;
+    std::cout << "allskel lu done" << std::endl;
     return;
   }
 // std::cout<<"all skel cond "<<tree->allskel_mat.condition_number()<<std::endl;
