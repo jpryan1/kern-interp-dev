@@ -388,8 +388,9 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     stacked.set_submatrix(mu.height(), stacked.height(), 0, 1, alpha);
 
     std::vector<int> all_dofs;
-    for (int i = 0; i < kernel.solution_dimension * boundary->weights.size();
-         i++) {
+    for (int i = 0;
+         i < kernel.solution_dimension * (boundary->points.size() /
+                                          quadtree.domain_dimension); i++) {
       all_dofs.push_back(i);
     }
     ki_Mat kern = kernel(all_dofs, all_dofs);
@@ -402,9 +403,7 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
                         0, all_dofs.size(), Psi);
     dense.set_submatrix(all_dofs.size(), dense.height(),
                         all_dofs.size(), dense.width(), -ident);
-
     ki_Mat fzero_prime = dense * stacked;
-
     ki_Mat err1 = (fzero_prime(0, mu.height(), 0, 1)
                    - boundary->boundary_values);
     ki_Mat err2 = (fzero_prime(mu.height(), fzero_prime.height(), 0, 1));
@@ -417,7 +416,9 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     ki_Mat mu;
     linear_solve(skel_factorization, quadtree, boundary->boundary_values, &mu);
     std::vector<int> all_dofs;
-    for (int i = 0; i < kernel.solution_dimension * boundary->weights.size();
+    for (int i = 0;
+         i < kernel.solution_dimension * (boundary->points.size() /
+                                          quadtree.domain_dimension);
          i++) {
       all_dofs.push_back(i);
     }
@@ -427,6 +428,7 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     double end = omp_get_wtime();
     // std::cout << "Big kern call took " << (end - start) << std::endl;
     ki_Mat err = (bigK * mu) - boundary->boundary_values;
+    std::cout<<"norm "<<boundary->boundary_values.vec_two_norm()<<std::endl;
     return err.vec_two_norm() / boundary->boundary_values.vec_two_norm();
   }
 }

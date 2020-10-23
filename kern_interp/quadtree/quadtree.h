@@ -73,6 +73,8 @@ struct QuadTreeNode {
 
 struct MidLevelNode {
   int partner_level;
+  bool is_third_level=false;
+
   bool X_rr_is_LU_factored = false, compressed = false;
   double side_length;
   std::vector<QuadTreeNode*> containing_nodes;
@@ -87,6 +89,7 @@ struct MidLevelNode {
 
 struct MidLevel {
   std::vector<MidLevelNode*> nodes;
+  bool is_third_level=false;
   ~MidLevel() {
     for (MidLevelNode* node : nodes) {
       delete node;
@@ -94,11 +97,9 @@ struct MidLevel {
   }
 };
 
-
-
 struct QuadTreeLevel {
   std::vector<QuadTreeNode*> nodes;
-  MidLevel* half_level, third_level;
+  MidLevel *half_level, *third_level;
   ~QuadTreeLevel() {
     for (QuadTreeNode* node : nodes) {
       delete node;
@@ -130,7 +131,7 @@ class QuadTree {
   void consolidate_node(QuadTreeNode* node);
   void reset();
   void reset(Boundary* boundary_);
-  void copy_into(QuadTree* new_tree) const;
+  void copy_into(QuadTree* new_tree, int mid_levels = 0) const;
   void mark_neighbors_and_parents(QuadTreeNode* node);
   void perturb(const Boundary& new_boundary);
   void sort_leaves();
@@ -152,8 +153,8 @@ void get_descendents_updates(ki_Mat* updates,
                              const std::vector<int>& update_cols,
                              const QuadTreeNode* node,
                              std::set<const QuadTreeNode*>* visited_nodes = nullptr,
-                             std::set<const HalfLevelNode*>* visited_halfnodes = nullptr,
-                             std::set<const ThirdLevelNode*>* visited_thirdnodes = nullptr);
+                             std::set<const MidLevelNode*>* visited_halfnodes = nullptr,
+                             std::set<const MidLevelNode*>* visited_thirdnodes = nullptr);
 
 void get_update(ki_Mat* updates,
                 const std::vector<int>& update_rows,
@@ -164,31 +165,23 @@ void get_update(ki_Mat* updates,
 void get_update(ki_Mat* updates,
                 const std::vector<int>& update_rows,
                 const std::vector<int>& update_cols,
-                const HalfLevelNode* node,
-                std::set<const HalfLevelNode*>* visited_halfnodes);
+                const MidLevelNode* node,
+                std::set<const MidLevelNode*>* visited_halfnodes);
 
 void get_update(ki_Mat * update,
                 const std::vector<int>& update_rows,
                 const std::vector<int>& update_cols,
-                const ThirdLevelNode * node,
-                std::set<const ThirdLevelNode*>* visited_thirdnodes) ;
-
-void get_half_level_schur_updates(ki_Mat * updates,
-                                  const std::vector<int>& update_rows,
-                                  const std::vector<int>& update_cols,
-                                  const HalfLevelNode * node,
-                                  std::set<const QuadTreeNode*>* visited_nodes,
-                                  std::set<const HalfLevelNode*>* visited_halfnodes,
-                                  std::set<const ThirdLevelNode*>* visited_thirdnodes) ;
+                const MidLevelNode * node,
+                std::set<const MidLevelNode*>* visited_thirdnodes) ;
 
 
-void get_third_level_schur_updates(ki_Mat * updates,
-                                   const std::vector<int>& update_rows,
-                                   const std::vector<int>& update_cols,
-                                   const ThirdLevelNode * node,
-                                   std::set<const QuadTreeNode*>* visited_nodes,
-                                   std::set<const HalfLevelNode*>* visited_halfnodes,
-                                   std::set<const ThirdLevelNode*>* visited_thirdnodes) ;
+void get_mid_level_schur_updates(ki_Mat * updates,
+                                 const std::vector<int>& update_rows,
+                                 const std::vector<int>& update_cols,
+                                 const MidLevelNode * node,
+                                 std::set<const QuadTreeNode*>* visited_nodes,
+                                 std::set<const MidLevelNode*>* visited_halfnodes,
+                                 std::set<const MidLevelNode*>* visited_thirdnodes) ;
 }  // namespace kern_interp
 
 #endif  // KERN_INTERP_QUADTREE_QUADTREE_H_

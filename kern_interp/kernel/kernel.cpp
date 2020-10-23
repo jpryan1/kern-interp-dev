@@ -54,7 +54,7 @@ void Kernel::one_d_kern(int mat_idx, ki_Mat* ret, double r1, double r2,
     }
   } else if (pde == Pde::GAUSS) {
     if (r1 == 0. && r2 == 0.) {
-      ret->mat[mat_idx] = 1.;
+      ret->mat[mat_idx] = 3.;
     } else {
       ret->mat[mat_idx] = exp(-(pow(r1, 2) + pow(r2, 2)));
     }
@@ -770,110 +770,7 @@ ki_Mat Kernel::forward() const {
 
 // TODO(John) this is redundant code with the associated function above.
 ki_Mat Kernel::get_id_mat(const QuadTree* tree,
-                          const HalfLevelNode* node) const {
-  std::vector<int> active_box = node->dof_lists.active_box;
-  // Grab all points inside the proxy circle which are outside the box
-  std::vector<int> inner_circle, outside_box;
-  //here and below, outside box needs to be populated based only on dofs not already made redundant
-
-  if (node->partner_level == 1) {
-    for (QuadTreeNode* level_node : tree->levels[node->partner_level]->nodes) {
-      if (level_node->compressed) {
-        for (int matrix_index : level_node->dof_lists.skel) {
-          outside_box.push_back(matrix_index);
-        }
-      } else {
-        for (int matrix_index : level_node->dof_lists.active_box) {
-          outside_box.push_back(matrix_index);
-        }
-      }
-    }
-    // Outside box may contain dofs inside the halflevel node, remove them.
-    std::vector<int> halfactive_copy = node->dof_lists.active_box;
-    std::vector<int> difference;
-
-    std::sort(halfactive_copy.begin(), halfactive_copy.end());
-    std::sort(outside_box.begin(),
-              outside_box.end());
-    std::set_difference(
-      outside_box.begin(),  outside_box.end(),
-      halfactive_copy.begin(), halfactive_copy.end(),
-      std::back_inserter(difference)
-    );
-    outside_box = difference;
-
-
-    ki_Mat mat(2 * outside_box.size(), active_box.size());
-    ki_Mat update_oa(outside_box.size(), node->dof_lists.active_box.size());
-    ki_Mat update_ao(node->dof_lists.active_box.size(), outside_box.size());
-
-    get_half_level_schur_updates(&update_ao, node->dof_lists.active_box,
-                                 outside_box, node, nullptr, nullptr, nullptr);
-    get_half_level_schur_updates(&update_oa, outside_box,
-                                 node->dof_lists.active_box,
-                                 node, nullptr, nullptr, nullptr);
-
-    mat.set_submatrix(0, outside_box.size(), 0, active_box.size(),
-                      (*this)(outside_box, active_box)
-                      - update_oa, false, true);
-    mat.set_submatrix(outside_box.size(), 2 * outside_box.size(),
-                      0, active_box.size(),
-                      (*this)(active_box, outside_box)
-                      - update_ao, true, true);
-
-    return mat;
-  }
-
-// Ensure that near definitely has no dofs that have been made redundant!
-  for (int matrix_index : node->dof_lists.near) {
-    int point_index = matrix_index / solution_dimension;
-    int points_vec_index = point_index * domain_dimension;
-    double x = boundary_points_[points_vec_index];
-    double y = boundary_points_[points_vec_index + 1];
-    double dist = 0.;
-    for (int d = 0; d < domain_dimension; d++) {
-      dist += pow(node->center[d] - boundary_points_[points_vec_index + d], 2);
-    }
-    dist = sqrt(dist);
-    if (dist < sqrt(domain_dimension)*RADIUS_RATIO * node->side_length) {
-      inner_circle.push_back(matrix_index);
-    }
-  }
-
-  int num_p_points = NUM_PROXY_POINTS;
-  ki_Mat pxy = get_proxy_mat(node->center, NUM_PROXY_POINTS, node->side_length
-                             * sqrt(domain_dimension) * RADIUS_RATIO, active_box);
-  // Now all the matrices are gathered, put them into mat.
-  ki_Mat mat(2 * inner_circle.size() + pxy.height(), active_box.size());
-
-
-  ki_Mat update_ia(inner_circle.size(), node->dof_lists.active_box.size());
-  ki_Mat update_ai(node->dof_lists.active_box.size(), inner_circle.size());
-
-  get_half_level_schur_updates(&update_ai, node->dof_lists.active_box,
-                               inner_circle, node, nullptr, nullptr, nullptr);
-  get_half_level_schur_updates(&update_ia, inner_circle,
-                               node->dof_lists.active_box,
-                               node, nullptr, nullptr, nullptr);
-
-  mat.set_submatrix(0, inner_circle.size(), 0, active_box.size(),
-                    (*this)(inner_circle, active_box)
-                    - update_ia, false, true);
-  mat.set_submatrix(inner_circle.size(), 2 * inner_circle.size(),
-                    0, active_box.size(),
-                    (*this)(active_box, inner_circle)
-                    - update_ai, true, true);
-  mat.set_submatrix(2 * inner_circle.size(),  pxy.height()
-                    + 2 * inner_circle.size(), 0,
-                    active_box.size(),  pxy, false, true);
-
-  return mat;
-}
-
-
-// TODO(John) this is redundant code with the associated function above.
-ki_Mat Kernel::get_id_mat(const QuadTree* tree,
-                          const ThirdLevelNode* node) const {
+                          const MidLevelNode* node) const {
   std::vector<int> active_box = node->dof_lists.active_box;
   // Grab all points inside the proxy circle which are outside the box
   std::vector<int> inner_circle, outside_box;
@@ -894,7 +791,7 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
     }
     // get redundant from halflevel
     std::vector<int> redundant_from_halflevel;
-    for (HalfLevelNode* halfnode :
+    for (MidLevelNode* halfnode :
          tree->levels[node->partner_level]->half_level->nodes) {
       if (halfnode->compressed) {
         for (int matrix_index : halfnode->dof_lists.redundant) {
@@ -914,13 +811,13 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
 
     outside_box = difference;
     difference.clear();
-    // remove those inside thirdlevelbox
-    std::vector<int> thirdactive_copy = node->dof_lists.active_box;
-    std::sort(thirdactive_copy.begin(), thirdactive_copy.end());
+    // remove those inside the box
+    std::vector<int> act_copy = node->dof_lists.active_box;
+    std::sort(act_copy.begin(), act_copy.end());
 
     std::set_difference(
       outside_box.begin(),  outside_box.end(),
-      thirdactive_copy.begin(), thirdactive_copy.end(),
+      act_copy.begin(), act_copy.end(),
       std::back_inserter(difference)
     );
     outside_box = difference;
@@ -930,16 +827,13 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
                           node->dof_lists.active_box.end());
     update_indices.insert(update_indices.end(), outside_box.begin(),
                           outside_box.end());
-    // TODO(HIF) this is inefficient! make get_update nonsymmetric
-    // Note that BN has all currently deactivated DoFs removed.
     ki_Mat update_oa(outside_box.size(), node->dof_lists.active_box.size());
     ki_Mat update_ao(node->dof_lists.active_box.size(), outside_box.size());
-
-    get_third_level_schur_updates(&update_ao, node->dof_lists.active_box,
-                                  outside_box, node, nullptr, nullptr, nullptr);
-    get_third_level_schur_updates(&update_oa, outside_box,
-                                  node->dof_lists.active_box,
-                                  node, nullptr, nullptr, nullptr);
+    get_mid_level_schur_updates(&update_ao, node->dof_lists.active_box,
+                                outside_box, node, nullptr, nullptr, nullptr);
+    get_mid_level_schur_updates(&update_oa, outside_box,
+                                node->dof_lists.active_box,
+                                node, nullptr, nullptr, nullptr);
 
     mat.set_submatrix(0, outside_box.size(), 0, active_box.size(),
                       (*this)(outside_box, active_box)
@@ -966,7 +860,19 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
       inner_circle.push_back(matrix_index);
     }
   }
+  std::vector<int> difference;
+  std::sort(inner_circle.begin(), inner_circle.end());
 
+  // remove those inside the box
+  std::vector<int> act_copy = node->dof_lists.active_box;
+  std::sort(act_copy.begin(), act_copy.end());
+
+  std::set_difference(
+    inner_circle.begin(),  inner_circle.end(),
+    act_copy.begin(), act_copy.end(),
+    std::back_inserter(difference)
+  );
+  inner_circle = difference;
   int num_p_points = NUM_PROXY_POINTS;
   ki_Mat pxy = get_proxy_mat(node->center, NUM_PROXY_POINTS, node->side_length
                              * sqrt(domain_dimension) * RADIUS_RATIO, active_box);
@@ -977,11 +883,11 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
   ki_Mat update_ia(inner_circle.size(), node->dof_lists.active_box.size());
   ki_Mat update_ai(node->dof_lists.active_box.size(), inner_circle.size());
 
-  get_third_level_schur_updates(&update_ai, node->dof_lists.active_box,
-                                inner_circle, node, nullptr, nullptr, nullptr);
-  get_third_level_schur_updates(&update_ia, inner_circle,
-                                node->dof_lists.active_box,
-                                node, nullptr, nullptr, nullptr);
+  get_mid_level_schur_updates(&update_ai, node->dof_lists.active_box,
+                              inner_circle, node, nullptr, nullptr, nullptr);
+  get_mid_level_schur_updates(&update_ia, inner_circle,
+                              node->dof_lists.active_box,
+                              node, nullptr, nullptr, nullptr);
 
   mat.set_submatrix(0, inner_circle.size(), 0, active_box.size(),
                     (*this)(inner_circle, active_box)
@@ -993,7 +899,6 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
   mat.set_submatrix(2 * inner_circle.size(),  pxy.height()
                     + 2 * inner_circle.size(), 0,
                     active_box.size(),  pxy, false, true);
-
   return mat;
 }
 

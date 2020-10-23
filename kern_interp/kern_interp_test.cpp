@@ -27,7 +27,7 @@ namespace kern_interp {
 
 
 void check_solve_err(const Kernel& kernel, Boundary* boundary) {
-  double id_tol = 1e-3;
+  double id_tol = 1e-6;
   EXPECT_LE(solve_err(kernel, boundary, id_tol), 10 * id_tol);
 }
 
@@ -110,15 +110,15 @@ void check_solve_err(const Kernel& kernel, Boundary* boundary) {
 // }
 
 
-// TEST(IeSolverTest, UniformDistBackwardError) {
-//   srand(0);
-//   std::unique_ptr<Boundary> boundary =
-//     std::unique_ptr<Boundary>(new UniformDist());
-//   boundary->initialize(pow(2, 18),  BoundaryCondition::DEFAULT);
-//   Kernel kernel(1, 2, Kernel::Pde::GAUSS, boundary.get(),
-//                 std::vector <double>());
-//   check_solve_err(kernel, boundary.get());
-// }
+TEST(IeSolverTest, UniformDistBackwardError) {
+  srand(0);
+  std::unique_ptr<Boundary> boundary =
+    std::unique_ptr<Boundary>(new UniformDist());
+  boundary->initialize(pow(2, 13),  BoundaryCondition::DEFAULT);
+  Kernel kernel(1, 2, Kernel::Pde::GAUSS, boundary.get(),
+                std::vector <double>());
+  check_solve_err(kernel, boundary.get());
+}
 
 
 // TEST(IeSolverTest, LaplaceNeumannAnnulusBackwardError) {
@@ -152,7 +152,7 @@ void check_solve_err(const Kernel& kernel, Boundary* boundary) {
 //   double id_tol = 1e-6;
 //   std::unique_ptr<Boundary> boundary =
 //     std::unique_ptr<Boundary>(new Sphere());
-  
+
 //   boundary->initialize(0,  BoundaryCondition::STOKES_3D_MIX);
 //   std::vector<double> domain_points;
 //   get_domain_points3d(10, &domain_points, boundary.get(), 0, 1);
@@ -194,36 +194,36 @@ void check_solve_err(const Kernel& kernel, Boundary* boundary) {
 //   return diff_norm;
 // }
 
-double laplace_error3d(const ki_Mat& domain,
-                       const std::vector<double>& domain_points,
-                       Boundary * boundary, BoundaryCondition bc) {
-  double diff_norm = 0;
-  double norm_of_true = 0;
-  for (int i = 0; i < domain_points.size(); i += 3) {
-    double x0 = domain_points[i];
-    double x1 = domain_points[i + 1];
-    double x2 = domain_points[i + 2];
-    PointVec x(x0, x1, x2);
-    PointVec center(0.5, 0.5, 0.5);
-    double r = (x - center).norm();
-    if (!boundary->is_in_domain(x)) {
-      continue;
-    }
-    double potential;
-    if (bc == BoundaryCondition::ELECTRON_3D) {
-      potential = -1.0 / (4.0 * M_PI * sqrt(pow(x0 + 1.5, 2) + pow(x1 ,
-                                            2) + pow(x2 , 2)));
-    } else if (bc == BoundaryCondition::LAPLACE_CHECK_3D) {
-      double c2 = (-2.0 / 9.0);
-      double c1 = 3 - c2;
-      potential = (c1) + (c2 / r);
-    }
-    diff_norm += pow(potential - domain.get(i / 3, 0), 2);
-    norm_of_true += pow(potential, 2);
-  }
-  diff_norm = sqrt(diff_norm) / sqrt(norm_of_true);
-  return diff_norm;
-}
+// double laplace_error3d(const ki_Mat& domain,
+//                        const std::vector<double>& domain_points,
+//                        Boundary * boundary, BoundaryCondition bc) {
+//   double diff_norm = 0;
+//   double norm_of_true = 0;
+//   for (int i = 0; i < domain_points.size(); i += 3) {
+//     double x0 = domain_points[i];
+//     double x1 = domain_points[i + 1];
+//     double x2 = domain_points[i + 2];
+//     PointVec x(x0, x1, x2);
+//     PointVec center(0.5, 0.5, 0.5);
+//     double r = (x - center).norm();
+//     if (!boundary->is_in_domain(x)) {
+//       continue;
+//     }
+//     double potential;
+//     if (bc == BoundaryCondition::ELECTRON_3D) {
+//       potential = -1.0 / (4.0 * M_PI * sqrt(pow(x0 + 1.5, 2) + pow(x1 ,
+//                                             2) + pow(x2 , 2)));
+//     } else if (bc == BoundaryCondition::LAPLACE_CHECK_3D) {
+//       double c2 = (-2.0 / 9.0);
+//       double c1 = 3 - c2;
+//       potential = (c1) + (c2 / r);
+//     }
+//     diff_norm += pow(potential - domain.get(i / 3, 0), 2);
+//     norm_of_true += pow(potential, 2);
+//   }
+//   diff_norm = sqrt(diff_norm) / sqrt(norm_of_true);
+//   return diff_norm;
+// }
 
 
 // double laplace_neumann_error(const ki_Mat& domain,
@@ -284,69 +284,6 @@ double laplace_error3d(const ki_Mat& domain,
 //   EXPECT_LE(err, 10 * 1e-13);
 // }
 
-
-// Commented out until higher order quadrature achieved.
-TEST(IeSolverTest, LaplaceSphereAnalyticAgreementElectron) {
-  srand(0);
-  openblas_set_num_threads(1);
-  int num_threads = 8;
-  double id_tol = 1e-6;
-  std::unique_ptr<Boundary> boundary =
-    std::unique_ptr<Boundary>(new Sphere());
-  int mode = 4;
-
-  boundary->initialize(mode,  BoundaryCondition::LAPLACE_CHECK_3D);
-
-  QuadTree quadtree;
-  quadtree.initialize_tree(boundary.get(), 1, 3);
-  std::vector<double> domain_points;
-
-  get_domain_points3d(10, &domain_points, boundary.get(), 0.1, 1);
-  Kernel kernel(1, 3, Kernel::Pde::LAPLACE, boundary.get(), domain_points);
-
-  kernel.compute_diag_entries_3dlaplace(boundary.get());
-  // check_solve_err(kernel, boundary.get());
-  ki_Mat sol = boundary_integral_solve(kernel, *(boundary.get()), &quadtree,
-                                       id_tol, num_threads, domain_points);
-
-  double err = laplace_error3d(sol, domain_points, boundary.get(),
-                               BoundaryCondition::LAPLACE_CHECK_3D);
-  EXPECT_LE(err, 10 * id_tol);
-}
-
-
-TEST(IeSolverTest, StokesSphereAnalyticAgreement) {
-  srand(0);
-  openblas_set_num_threads(1);
-
-  int num_threads = 8;
-  double id_tol = 1e-6;
-
-  std::unique_ptr<Boundary> boundary3d =
-    std::unique_ptr<Boundary>(new Sphere());
-  int mode = 4;
-  // Boundary condition is flow past noslip interior hole.
-  boundary3d->initialize(mode,  BoundaryCondition::STOKES_3D_MIX);
-
-  QuadTree quadtree3d;
-  quadtree3d.initialize_tree(boundary3d.get(), 3, 3);
-  std::vector<double> domain_points3d;
-  int domain_size = 10;
-
-  get_domain_points3d(domain_size, &domain_points3d, boundary3d.get(), 0, 1);
-
-  Kernel kernel3d(3, 3, Kernel::Pde::STOKES, boundary3d.get(), domain_points3d);
-  // TODO(John) this should be part of kernel init
-  kernel3d.compute_diag_entries_3dstokes(boundary3d.get());
-
-  ki_Mat sol3d = boundary_integral_solve(kernel3d, *(boundary3d.get()),
-                                         &quadtree3d,
-                                         id_tol, num_threads, domain_points3d);
-
-  double err = stokes_err_3d(sol3d, domain_points3d, boundary3d.get(),
-                             0.1, STOKES_MIXER);
-  EXPECT_LE(err, 10 * id_tol);
-}
 
 
 // TEST(IeSolverTest, LaplaceAnnulusAnalyticAgreementElectron) {
@@ -489,14 +426,14 @@ TEST(IeSolverTest, StokesSphereAnalyticAgreement) {
 // }
 
 
-// TEST(IeSolverTest, TreeCopyGivesSameAnswer) {
+// TEST(IeSolverTest, TreeCopy2DGivesSameAnswer) {
 //   double id_tol = 1e-6;
 //   Kernel::Pde pde = Kernel::Pde::STOKES;
 //   int num_boundary_points = pow(2, 12);
 //   int domain_size = 20;
 //   int domain_dimension = 2;
 //   int solution_dimension = 2;
-//   int fact_threads = 4;
+//   int fact_threads = 1;
 
 //   std::unique_ptr<Boundary> boundary =
 //     std::unique_ptr<Boundary>(new Ex1Boundary());
@@ -511,15 +448,82 @@ TEST(IeSolverTest, StokesSphereAnalyticAgreement) {
 //                     quadtree.max);
 //   Kernel kernel(solution_dimension, domain_dimension,
 //                 pde, boundary.get(), domain_points);
+//   check_solve_err(kernel, boundary.get());
+//   std::cout<<"Solve error looks good"<<std::endl;
 //   ki_Mat solution = boundary_integral_solve(kernel, *(boundary.get()),
 //                     &quadtree, id_tol, fact_threads, domain_points);
 
 //   QuadTree fresh;
-//   quadtree.copy_into(&fresh);
-//   ki_Mat new_sol = boundary_integral_solve(kernel, *(boundary.get()), &fresh,
+//   quadtree.copy_into(&fresh, 0);
+//   ki_Mat new_sol = boundary_integral_solve(kernel, *(boundary.get()), &quadtree,
 //                    id_tol,
 //                    fact_threads, domain_points);
 //   ASSERT_LE((new_sol - solution).vec_two_norm(), 1e-15);
 // }
 
 }  // namespace kern_interp
+
+
+
+// Commented out until higher order quadrature achieved.
+// TEST(IeSolverTest, LaplaceSphereAnalyticAgreementElectron) {
+//   srand(0);
+//   openblas_set_num_threads(1);
+//   int num_threads = 8;
+//   double id_tol = 1e-6;
+//   std::unique_ptr<Boundary> boundary =
+//     std::unique_ptr<Boundary>(new Sphere());
+//   int mode = 4;
+
+//   boundary->initialize(mode,  BoundaryCondition::LAPLACE_CHECK_3D);
+
+//   QuadTree quadtree;
+//   quadtree.initialize_tree(boundary.get(), 1, 3);
+//   std::vector<double> domain_points;
+
+//   get_domain_points3d(10, &domain_points, boundary.get(), 0.1, 1);
+//   Kernel kernel(1, 3, Kernel::Pde::LAPLACE, boundary.get(), domain_points);
+
+//   kernel.compute_diag_entries_3dlaplace(boundary.get());
+//   // check_solve_err(kernel, boundary.get());
+//   ki_Mat sol = boundary_integral_solve(kernel, *(boundary.get()), &quadtree,
+//                                        id_tol, num_threads, domain_points);
+
+//   double err = laplace_error3d(sol, domain_points, boundary.get(),
+//                                BoundaryCondition::LAPLACE_CHECK_3D);
+//   EXPECT_LE(err, 10 * id_tol);
+// }
+
+
+// TEST(IeSolverTest, StokesSphereAnalyticAgreement) {
+//   srand(0);
+//   openblas_set_num_threads(1);
+
+//   int num_threads = 8;
+//   double id_tol = 1e-6;
+
+//   std::unique_ptr<Boundary> boundary3d =
+//     std::unique_ptr<Boundary>(new Sphere());
+//   int mode = 4;
+//   // Boundary condition is flow past noslip interior hole.
+//   boundary3d->initialize(mode,  BoundaryCondition::STOKES_3D_MIX);
+
+//   QuadTree quadtree3d;
+//   quadtree3d.initialize_tree(boundary3d.get(), 3, 3);
+//   std::vector<double> domain_points3d;
+//   int domain_size = 10;
+
+//   get_domain_points3d(domain_size, &domain_points3d, boundary3d.get(), 0, 1);
+
+//   Kernel kernel3d(3, 3, Kernel::Pde::STOKES, boundary3d.get(), domain_points3d);
+//   // TODO(John) this should be part of kernel init
+//   kernel3d.compute_diag_entries_3dstokes(boundary3d.get());
+
+//   ki_Mat sol3d = boundary_integral_solve(kernel3d, *(boundary3d.get()),
+//                                          &quadtree3d,
+//                                          id_tol, num_threads, domain_points3d);
+
+//   double err = stokes_err_3d(sol3d, domain_points3d, boundary3d.get(),
+//                              0.1, STOKES_MIXER);
+//   EXPECT_LE(err, 10 * id_tol);
+// }

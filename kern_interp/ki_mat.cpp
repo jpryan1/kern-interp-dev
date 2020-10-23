@@ -97,6 +97,7 @@ ki_Mat::ki_Mat(int h, int w) {
 
 
 double ki_Mat::get(int i, int j) const {
+
   assert(i < height_ && j < width_ && mat != NULL);
   return mat[i + lda_ * j];
 }
@@ -536,10 +537,14 @@ int ki_Mat::id(std::vector<int>* p, ki_Mat* Z, double tol) const {
                              &pvt[0], &tau[0]);
 
   assert(info1 == 0);
+  assert(width_ < height_
+         && "Width>=Height in ID, maybe this should happen, but probably a bug");
   int skel = 0;
   double thresh = fabs(tol * cpy.get(0, 0));
-  for (int i = 1; i < width_; i++) {
+  int smaller = std::min(height_, width_);
+  for (int i = 1; i < smaller; i++) {
     // check if R_{i,i} / R_{0,0} < tol
+    // std::cout << i << " out of " << width_ << std::endl;
     if (fabs(cpy.get(i, i)) < thresh) {
       skel = i;
       break;
@@ -552,8 +557,9 @@ int ki_Mat::id(std::vector<int>* p, ki_Mat* Z, double tol) const {
   *p = std::vector<int>(width_);
 
   for (int i = 0; i < width_; i++) {
-    (*p)[i] = pvt[i]-1;
+    (*p)[i] = pvt[i] - 1;
   }
+
   int redund = width_ - skel;
   // set Z to be R_11^-1 R_12. Note 'U' (above diagonal) part of cp.mat
   // is the R matrix from dgeqp3.

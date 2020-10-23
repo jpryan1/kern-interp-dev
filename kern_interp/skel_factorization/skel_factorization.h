@@ -27,14 +27,11 @@ class SkelFactorization {
   SkelFactorization(double id_tol, int fact_threads);
   ~SkelFactorization() {}
   void decouple(const Kernel& K, QuadTreeNode* node);
-  void decouple(const Kernel& K, HalfLevelNode* node);
-  void decouple(const Kernel& kernel, ThirdLevelNode* node);
+  void decouple(const Kernel& kernel, MidLevelNode* node);
   int id_compress(const Kernel& K, const QuadTree* tree,
                   QuadTreeNode* node);
   int id_compress(const Kernel& kernel, const QuadTree* tree,
-                  HalfLevelNode* node) ;
-  int id_compress(const Kernel& kernel, const QuadTree* tree,
-                  ThirdLevelNode* node) ;
+                  MidLevelNode* node) ;
 
   void skeletonize(const Kernel& K, QuadTree* tree);
 
