@@ -554,7 +554,7 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
       dist += pow(node->center[d] - boundary_points_[points_vec_index + d], 2);
     }
     dist = sqrt(dist);
-    if (dist <  sqrt(domain_dimension)*RADIUS_RATIO * node->side_length) {
+    if (dist <  sqrt(domain_dimension) * RADIUS_RATIO * (node->side_length/2)) {
       inner_circle.push_back(matrix_index);
     }
   }
@@ -582,7 +582,7 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
   // }
 
   int num_p_points = NUM_PROXY_POINTS;
-  ki_Mat pxy = get_proxy_mat(node->center, NUM_PROXY_POINTS, node->side_length
+  ki_Mat pxy = get_proxy_mat(node->center, NUM_PROXY_POINTS, (node->side_length/2)
                              * sqrt(domain_dimension) * RADIUS_RATIO, active_box);
   // Now all the matrices are gathered, put them into mat.
   ki_Mat mat(2 * inner_circle.size() + pxy.height(), active_box.size());
@@ -782,7 +782,7 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
                           const MidLevelNode* node) const {
   std::vector<int> active_box = node->dof_lists.active_box;
   // Grab all points inside the proxy circle which are outside the box
- std::vector<int> inner_circle, outside_box;
+  std::vector<int> inner_circle, outside_box;
   if (node->partner_level == 1) {
     // Get active from level nodes, remove redundant in level nodes and halflevel nodes, remove those inside thirdlevelnode
     for (QuadTreeNode* level_node : tree->levels[node->partner_level]->nodes) {
@@ -862,14 +862,14 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
       dist += pow(node->center[d] - boundary_points_[points_vec_index + d], 2);
     }
     dist = sqrt(dist);
-    if (dist < sqrt(domain_dimension)*RADIUS_RATIO * node->side_length) {
+    if (dist < sqrt(domain_dimension)*RADIUS_RATIO * node->pxy_rad) {
       inner_circle.push_back(matrix_index);
     }
   }
 
   int num_p_points = NUM_PROXY_POINTS;
-  ki_Mat pxy = get_proxy_mat(node->center, NUM_PROXY_POINTS, node->side_length
-                             * sqrt(domain_dimension) * RADIUS_RATIO, active_box);
+  ki_Mat pxy = get_proxy_mat(node->center, NUM_PROXY_POINTS, sqrt(domain_dimension)*node->pxy_rad
+                             * RADIUS_RATIO, active_box);
   // Now all the matrices are gathered, put them into mat.
   ki_Mat mat(2 * inner_circle.size() + pxy.height(), active_box.size());
 

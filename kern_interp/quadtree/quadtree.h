@@ -76,7 +76,7 @@ struct MidLevelNode {
   bool is_third_level=false;
 
   bool X_rr_is_LU_factored = false, compressed = false;
-  double side_length;
+  double pxy_rad;
   std::vector<QuadTreeNode*> containing_nodes;
   InteractionLists dof_lists;
   // For inverse operator
@@ -169,13 +169,6 @@ void get_update(ki_Mat* updates,
                 const std::vector<int>& update_cols,
                 const MidLevelNode* node,
                 std::set<const MidLevelNode*>* visited_halfnodes);
-
-void get_update(ki_Mat * update,
-                const std::vector<int>& update_rows,
-                const std::vector<int>& update_cols,
-                const MidLevelNode * node,
-                std::set<const MidLevelNode*>* visited_thirdnodes) ;
-
 
 void get_mid_level_schur_updates(ki_Mat * updates,
                                  const std::vector<int>& update_rows,

@@ -11,7 +11,7 @@
 #include "kern_interp/quadtree/quadtree.h"
 
 #define NUM_PROXY_POINTS 128
-#define RADIUS_RATIO 1.5
+#define RADIUS_RATIO 2
 
 namespace kern_interp {
 

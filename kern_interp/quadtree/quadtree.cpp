@@ -78,7 +78,7 @@ void QuadTree::compute_half_levels() {
               // Create the new halfnode
               recompressor = new MidLevelNode();
               recompressor->center = newcenter;
-              recompressor->side_length = node_a->side_length / sqrt(2);
+              recompressor->pxy_rad = node_a->side_length / 2;
               recompressor->partner_level = level;
               current_level->half_level->nodes.push_back(recompressor);
               node_a->recompressor_nodes.push_back(recompressor);
@@ -173,9 +173,7 @@ void QuadTree::compute_third_levels() {
           recompressor = new MidLevelNode();
           recompressor->is_third_level = true;
           recompressor->center = newcenter;
-
-          // TODO(John) I have no idea if this is right.
-          recompressor->side_length = node_a->side_length / sqrt(3);
+          recompressor->pxy_rad = (node_a->side_length / 2) * sqrt(2);
           recompressor->partner_level = level;
           current_level->third_level->nodes.push_back(recompressor);
           node_a->recompressor_third_nodes.push_back(recompressor);
@@ -819,7 +817,7 @@ void copy_info(MidLevelNode * old_node, MidLevelNode * new_node) {
   new_node->is_third_level = old_node->is_third_level;
   new_node->X_rr_is_LU_factored = old_node->X_rr_is_LU_factored;
   new_node->compressed = old_node->compressed;
-  new_node->side_length = old_node->side_length;
+  new_node->pxy_rad = old_node->pxy_rad;
   new_node->dof_lists = old_node->dof_lists;
   new_node->T = old_node->T;
   new_node->L = old_node->L;
@@ -1124,6 +1122,7 @@ void QuadTree::populate_half_level_dofs(int level) {
     halfnode->dof_lists.redundant.clear();
     halfnode->dof_lists.active_box.clear();
   }
+
   for (QuadTreeNode* node : levels[level]->nodes) {
     if (node->recompressor_nodes.empty()) continue;
     std::vector<int> dofs;
@@ -1158,6 +1157,7 @@ void QuadTree::populate_half_level_dofs(int level) {
       }
       // Now check if closest facecenter corresponds to a recomp node
       for (MidLevelNode* recompressor_node : node->recompressor_nodes) {
+        if (recompressor_node->compressed) continue;
         if (almost_align(closest_face_center, recompressor_node->center)) {
           recompressor_node->dof_lists.active_box.push_back(idx);
           break;
@@ -1168,11 +1168,12 @@ void QuadTree::populate_half_level_dofs(int level) {
 
   // Near should be any dof in containers or their same or larger sized neighbors
   for (MidLevelNode* halfnode : levels[level]->half_level->nodes) {
+    if (halfnode->compressed) continue;
     std::set<QuadTreeNode*> visited_nodes;
     // TODO(HIF) set complexity bad? Use hash?
-    std::set<int> halfnode_contained_dofs;
+    std::set<int> act_or_near_already;
     for (int idx : halfnode->dof_lists.active_box) {
-      halfnode_contained_dofs.insert(idx);
+      act_or_near_already.insert(idx);
     }
     for (QuadTreeNode* containing_node : halfnode->containing_nodes) {
       for (QuadTreeNode* neighbor : containing_node->neighbors) {
@@ -1194,11 +1195,11 @@ void QuadTree::populate_half_level_dofs(int level) {
           dof_list = neighbor->dof_lists.active_box;
         }
         for (int idx : dof_list) {
-          if (halfnode_contained_dofs.find(idx) != halfnode_contained_dofs.end()) {
+          if (act_or_near_already.find(idx) != act_or_near_already.end()) {
             continue;
           }
           halfnode->dof_lists.near.push_back(idx);
-          halfnode_contained_dofs.insert(idx);
+          act_or_near_already.insert(idx);
         }
       }
     }
@@ -1285,6 +1286,7 @@ void QuadTree::populate_third_level_dofs(int level) {
       }
       // Now check if closest edgecenter corresponds to a recomp node
       for (MidLevelNode* recompressor_third_node : node->recompressor_third_nodes) {
+        if (recompressor_third_node->compressed) continue;
         if (almost_align(closest_edge_center, recompressor_third_node->center)) {
           recompressor_third_node->dof_lists.active_box.push_back(idx);
           break;
@@ -1295,11 +1297,12 @@ void QuadTree::populate_third_level_dofs(int level) {
 
   // Near should be any dof in containers or their same or larger sized neighbors
   for (MidLevelNode* thirdnode : levels[level]->third_level->nodes) {
+    if (thirdnode->compressed) continue;
     std::set<QuadTreeNode*> visited_nodes;
     // TODO(HIF) set complexity bad? Use hash?
-    std::set<int> thirdnode_contained_dofs;
+    std::set<int> act_or_near_already;
     for (int idx : thirdnode->dof_lists.active_box) {
-      thirdnode_contained_dofs.insert(idx);
+      act_or_near_already.insert(idx);
     }
     for (QuadTreeNode* containing_node : thirdnode->containing_nodes) {
       for (QuadTreeNode* neighbor : containing_node->neighbors) {
@@ -1336,11 +1339,11 @@ void QuadTree::populate_third_level_dofs(int level) {
         dof_list = difference;
 
         for (int idx : dof_list) {
-          if (thirdnode_contained_dofs.find(idx) != thirdnode_contained_dofs.end()) {
+          if (act_or_near_already.find(idx) != act_or_near_already.end()) {
             continue;
           }
           thirdnode->dof_lists.near.push_back(idx);
-          thirdnode_contained_dofs.insert(idx);
+          act_or_near_already.insert(idx);
         }
       }
     }

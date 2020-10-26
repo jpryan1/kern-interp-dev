@@ -8,13 +8,11 @@
 #include "kern_interp/skel_factorization/skel_factorization.h"
 #include "kern_interp/kernel/kernel.h"
 
-#define USING_HIF 0
-
 namespace kern_interp {
-//TODOS 
-  // Kernel update data and compute diags are all awkward right now
-  // Tree child idx iterator, the current thing is unreadable unintuitive
-  // 
+//TODOS
+// Kernel update data and compute diags are all awkward right now
+// Tree child idx iterator, the current thing is unreadable unintuitive
+//
 
 std::vector<int> big_to_small(const std::vector<int>& big,
                               const std::unordered_map<int,
@@ -27,10 +25,11 @@ std::vector<int> big_to_small(const std::vector<int>& big,
 }
 
 
-SkelFactorization::SkelFactorization(double id_tol, int fact_threads) {
-  assert(id_tol > 0 && "id_tol must be greater than one to init tools.");
+SkelFactorization::SkelFactorization(double id_tol, int fact_threads,
+                                     bool using_hif) {
   this->id_tol = id_tol;
   this->fact_threads = fact_threads;
+  this->using_hif = using_hif;
 }
 
 
@@ -120,11 +119,6 @@ void SkelFactorization::decouple(const Kernel& kernel, QuadTreeNode* node) {
   node->X_rr_lu.left_multiply_inverse(K_BN_r_sn, node->X_rr_piv,  &node->U);
   node->schur_update = node->L * K_BN_r_sn;
   node->compressed = true;
-  // std::cout << "posting schur updates for 1node " << node->center[0] << " " <<
-  //           node->center[1] << " " << node->center[2] << " to " << std::endl;
-  // for (int i = 0; i < num_skel; i++) {
-  //   std::cout << node->dof_lists.skel[i] << ", ";
-  // } std::cout << std::endl;
 }
 
 
@@ -167,11 +161,6 @@ void SkelFactorization::decouple(const Kernel& kernel, MidLevelNode* node) {
   node->U = ki_Mat(num_redundant, sn.size());
   node->X_rr_lu.right_multiply_inverse(K_BN_sn_r, node->X_rr_piv, &node->L);
   node->X_rr_lu.left_multiply_inverse(K_BN_r_sn, node->X_rr_piv,  &node->U);
-  // std::cout << "posting schur updates for 3node " << node->center[0] << " " <<
-  //           node->center[1] << " " << node->center[2] << " to " << std::endl;
-  // for (int i = 0; i < num_skel; i++) {
-  //   std::cout << node->dof_lists.skel[i] << ", ";
-  // } std::cout << std::endl;
   node->schur_update = node->L * K_BN_r_sn;
   node->compressed = true;
 }
@@ -208,12 +197,11 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
       }
       double ide = omp_get_wtime();
       nodes_left -= current_node->T.width();
-      // std::cout << "Took " << current_node->T.width() << " from node " << std::endl;
       decouple(kernel, current_node);
       node_counter++;
     }
     std::cout << "nodes left after full level " << nodes_left << std::endl;
-    if (!USING_HIF) continue;
+    if (!using_hif) continue;
     tree->populate_half_level_dofs(level);
     MidLevel* current_half_level = tree->levels[level]->half_level;
 
@@ -222,32 +210,17 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
     for (int n = 0; n < current_half_level->nodes.size(); n++) {
       MidLevelNode* current_half_level_node = current_half_level->nodes[n];
       halfdofs += current_half_level_node->dof_lists.active_box.size();
-
-      // std::cout << "hn size center " <<
-      //             current_half_level_node->dof_lists.active_box.size() << " " <<
-      //             current_half_level_node->center[0]
-      //             << " " << current_half_level_node->center[1] << std::endl;
       if (current_half_level_node->compressed
           || current_half_level_node->dof_lists.active_box.size() <
           MIN_DOFS_TO_COMPRESS / 4) {
-        // std::cout << "didn't halfnode not enough " <<
-        //           current_half_level_node->dof_lists.active_box.size() << " " <<
-        //           current_half_level_node->center[0]
-        //           << " " << current_half_level_node->center[1] << std::endl;
 
         if (current_half_level_node->compressed) nodes_left -=
             current_half_level_node->dof_lists.redundant.size();
         continue;
       }
-      // std::cout<<"Tried recompression on halfbox with "<<current_half_level_node->dof_lists.active_box.size() <<" dofs"<<std::endl;
       if (id_compress(kernel, tree, current_half_level_node) == 0) {
-        // std::cout<<"failed"<<std::endl;
-        // std::cout << "didn't halfnode at " << current_half_level_node->center[0] << " "
-        //           << current_half_level_node->center[1] << std::endl;
-
         continue;
       }
-      // std::cout<<"Successfully removed "<<current_half_level_node->T.width()<<std::endl;
       nodes_left -= current_half_level_node->T.width();
 
       decouple(kernel, current_half_level_node);
@@ -277,7 +250,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
         }
         nodes_left -= current_third_level_node->T.width();
         decouple(kernel, current_third_level_node);
-        node_counter++;      std::cout<<"compressed"<<std::endl;
+        node_counter++;      std::cout << "compressed" << std::endl;
 
       }
       std::cout << "nodes left after thirdlevel " << nodes_left << " found " <<
@@ -285,8 +258,6 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
     }
   }
   end = omp_get_wtime();
-  // std::cout << "Last level " << (end - start) << std::endl;
-  // std::cout << "Nodes left " << nodes_left << std::endl;
   // If the above breaks due to a cap, we need to manually propagate active
   // boxes up the tree.
   tree->remove_inactive_dofs_at_all_boxes();
@@ -312,7 +283,6 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
     std::cout << "allskel lu done" << std::endl;
     return;
   }
-// std::cout<<"all skel cond "<<tree->allskel_mat.condition_number()<<std::endl;
   std::vector<QuadTreeNode*> all_nodes;
   std::vector<MidLevelNode*> all_half_nodes;
   std::vector<MidLevelNode*> all_third_nodes;
@@ -321,7 +291,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
     for (int n = 0; n < current_level->nodes.size(); n++) {
       all_nodes.push_back(current_level->nodes[n]);
     }
-    if (!USING_HIF) continue;
+    if (!using_hif) continue;
     for (int n = 0; n < current_level->half_level->nodes.size(); n++) {
       all_half_nodes.push_back(current_level->half_level->nodes[n]);
     }
@@ -383,7 +353,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                          current_node->dof_lists.skelnear, false);
     }
 
-    if (!USING_HIF) continue;
+    if (!using_hif) continue;
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_level->half_level->nodes.size(); n++) {
       MidLevelNode* current_node = current_level->half_level->nodes[n];
@@ -435,7 +405,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                          current_node->dof_lists.skelnear,
                          true);
     }
-    if (!USING_HIF) continue;
+    if (!using_hif) continue;
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_level->half_level->nodes.size(); n++) {
       MidLevelNode* current_node = current_level->half_level->nodes[n];
@@ -490,7 +460,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                           &Dinv_C_nonzero,
                           small_redundants);
   }
-  if (USING_HIF) {
+  if (using_hif) {
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < all_half_nodes.size(); n++) {
       MidLevelNode* current_node = all_half_nodes[n];
@@ -614,7 +584,7 @@ void SkelFactorization::solve(const QuadTree & quadtree, ki_Mat * x,
   std::vector<MidLevelNode*> all_half_nodes;
   std::vector<MidLevelNode*> all_third_nodes;
 
-  if (USING_HIF) {
+  if (using_hif) {
     for (int level = lvls - 1; level >= 0; level--) {
       MidLevel* current_level = quadtree.levels[level]->half_level;
       for (int n = 0; n < current_level->nodes.size(); n++) {
@@ -645,7 +615,7 @@ void SkelFactorization::solve(const QuadTree & quadtree, ki_Mat * x,
                          current_node->dof_lists.redundant,
                          current_node->dof_lists.skelnear, false);
     }
-    if (!USING_HIF) continue;
+    if (!using_hif) continue;
     MidLevel* current_half_level = quadtree.levels[level]->half_level;
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_half_level->nodes.size(); n++) {
@@ -692,7 +662,7 @@ void SkelFactorization::solve(const QuadTree & quadtree, ki_Mat * x,
     apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv, x,
                           current_node->dof_lists.redundant);
   }
-  if (USING_HIF) {
+  if (using_hif) {
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < all_half_nodes.size(); n++) {
       MidLevelNode* current_node = all_half_nodes[n];
@@ -730,7 +700,7 @@ void SkelFactorization::solve(const QuadTree & quadtree, ki_Mat * x,
 
 
   for (int level = 0; level < lvls; level++) {
-    if (USING_HIF) {
+    if (using_hif) {
 
       if (quadtree.domain_dimension == 3) {
         MidLevel* current_third_level = quadtree.levels[level]->third_level;
@@ -802,7 +772,7 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
   std::vector<MidLevelNode*> all_half_nodes;
   std::vector<MidLevelNode*> all_third_nodes;
 
-  if (USING_HIF) {
+  if (using_hif) {
     for (int level = lvls - 1; level >= 0; level--) {
       MidLevel* current_half_level = quadtree.levels[level]->half_level;
       for (int n = 0; n < current_half_level->nodes.size(); n++) {
@@ -870,7 +840,7 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
                          current_node->dof_lists.redundant,
                          current_node->dof_lists.skelnear, false);
     }
-    if (!USING_HIF) continue;
+    if (!using_hif) continue;
 
     MidLevel* current_half_level = quadtree.levels[level]->half_level;
 
@@ -940,7 +910,7 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
                          current_node->dof_lists.skelnear,
                          true);
     }
-    if (!USING_HIF) continue;
+    if (!using_hif) continue;
     MidLevel* current_half_level = quadtree.levels[level]->half_level;
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_half_level->nodes.size(); n++) {
@@ -994,7 +964,7 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
     apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
                           &Dinv_w, small_redundants);
   }
-  if (USING_HIF) {
+  if (using_hif) {
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < all_half_nodes.size(); n++) {
       MidLevelNode* current_node = all_half_nodes[n];
@@ -1053,7 +1023,7 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
     apply_diag_inv_matrix(current_node->X_rr_lu, current_node->X_rr_piv,
                           &Dinv_N, small_redundants);
   }
-  if (USING_HIF) {
+  if (using_hif) {
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < all_half_nodes.size(); n++) {
       MidLevelNode* current_node = all_half_nodes[n];
@@ -1093,7 +1063,7 @@ void SkelFactorization::multiply_connected_solve(const QuadTree & quadtree,
   mu->set_submatrix(allskel, 0, 1, y(0, allskel.size(), 0, 1));
 
   for (int level = 0; level < lvls; level++) {
-    if (USING_HIF) {
+    if (using_hif) {
       if (quadtree.domain_dimension == 3) {
 
         MidLevel* current_third_level = quadtree.levels[level]->third_level;

@@ -211,8 +211,8 @@ double laplace_error3d(const ki_Mat& domain,
     }
     double potential;
     if (bc == BoundaryCondition::ELECTRON_3D) {
-      potential = -1.0 / (4.0 * M_PI * sqrt(pow(x0 + 1.5, 2) + pow(x1 ,
-                                            2) + pow(x2 , 2)));
+      potential = -1.0 / (4.0 * M_PI * sqrt(pow(x0 + 3, 2) + pow(x1 + 2,
+                                            2) + pow(x2 + 2 , 2)));
     } else if (bc == BoundaryCondition::LAPLACE_CHECK_3D) {
       double c2 = (-2.0 / 9.0);
       double c1 = 3 - c2;

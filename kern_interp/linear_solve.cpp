@@ -404,7 +404,6 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     dense.set_submatrix(all_dofs.size(), dense.height(),
                         all_dofs.size(), dense.width(), -ident);
     ki_Mat fzero_prime = dense * stacked;
-    std::cout << "Dense cond " << dense.condition_number() << std::endl;
     ki_Mat err1 = (fzero_prime(0, mu.height(), 0, 1)
                    - boundary->boundary_values);
     ki_Mat err2 = (fzero_prime(mu.height(), fzero_prime.height(), 0, 1));

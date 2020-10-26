@@ -22,9 +22,9 @@ class SkelFactorization {
 
   double id_tol;
   int fact_threads;
-
+  bool using_hif = true;
   SkelFactorization() {}
-  SkelFactorization(double id_tol, int fact_threads);
+  SkelFactorization(double id_tol, int fact_threads, bool using_hif = true);
   ~SkelFactorization() {}
   void decouple(const Kernel& K, QuadTreeNode* node);
   void decouple(const Kernel& kernel, MidLevelNode* node);
