@@ -11,7 +11,7 @@
 #include "kern_interp/quadtree/quadtree.h"
 
 #define NUM_PROXY_POINTS 128
-#define RADIUS_RATIO 1.5
+#define RADIUS_RATIO 2
 
 namespace kern_interp {
 
@@ -95,7 +95,7 @@ struct Kernel {
                        double r,
                        const std::vector<int> & box_inds) const;
   ki_Mat get_id_mat(const QuadTree* tree,
-                    const HalfLevelNode* node) const;
+                    const MidLevelNode* node) const;
 
   ki_Mat get_3d(const std::vector<int>& tgt_inds,
                 const std::vector<int>& src_inds, bool forward, bool parallel) const;

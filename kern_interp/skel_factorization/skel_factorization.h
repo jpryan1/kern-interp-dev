@@ -9,7 +9,7 @@
 #include "kern_interp/quadtree/quadtree.h"
 #include "kern_interp/kernel/kernel.h"
 
-#define MIN_DOFS_TO_COMPRESS 16
+#define MIN_DOFS_TO_COMPRESS 64
 #define NODE_CAP INFINITY
 #define LEVEL_CAP INFINITY
 
@@ -22,16 +22,16 @@ class SkelFactorization {
 
   double id_tol;
   int fact_threads;
-
+  bool using_hif = true;
   SkelFactorization() {}
-  SkelFactorization(double id_tol, int fact_threads);
+  SkelFactorization(double id_tol, int fact_threads, bool using_hif = true);
   ~SkelFactorization() {}
   void decouple(const Kernel& K, QuadTreeNode* node);
-  void decouple(const Kernel& K, HalfLevelNode* node);
+  void decouple(const Kernel& kernel, MidLevelNode* node);
   int id_compress(const Kernel& K, const QuadTree* tree,
                   QuadTreeNode* node);
   int id_compress(const Kernel& kernel, const QuadTree* tree,
-                  HalfLevelNode* node) ;
+                  MidLevelNode* node) ;
 
   void skeletonize(const Kernel& K, QuadTree* tree);
 

@@ -188,10 +188,14 @@ void Boundary::apply_boundary_condition(int start_point_idx, int end_point_idx,
       }
       // 3D domain
       case ELECTRON_3D: {
-        double r = sqrt(pow(points[3 * point_idx] + 3, 2)
-                        + pow(points[3 * point_idx + 1] + 2, 2)
-                        + pow(points[3 * point_idx + 2] + 2, 2));
-        boundary_values.set(point_idx, 0, -1.0 / (4 * M_PI * r));
+        double r = sqrt(pow(points[3 * point_idx] +3, 2)
+                        + pow(points[3 * point_idx + 1]+2, 2)
+                        + pow(points[3 * point_idx + 2]+2, 2));
+
+        // double r2 = sqrt(pow(points[3 * point_idx] +5.55, 2)
+        //                 + pow(points[3 * point_idx + 1]-0.5, 2)
+        //                 + pow(points[3 * point_idx + 2]-0.5, 2));
+        boundary_values.set(point_idx, 0, (-1.0 / (4 * M_PI * r)));// + (-1.0 / (4 * M_PI * r2)));
         break;
       }
       case LAPLACE_CHECK_3D: {

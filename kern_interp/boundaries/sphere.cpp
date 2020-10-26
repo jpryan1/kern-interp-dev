@@ -18,7 +18,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
   string data_dir = "kern_interp/boundaries/sphere_triangulations/";
   std::vector<double> file_points, file_weights;
   string line;
-  ifstream myfile(data_dir + "tri7970.txt");
+  ifstream myfile(data_dir + "tri1032.txt");
   if (myfile.is_open()) {
     while (getline(myfile, line)) {
       stringstream s_stream(line);
@@ -33,7 +33,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
     }
     myfile.close();
   } else {
-    std::cout << "NO File" << std::endl;
+    std::cout << "N0 File" << std::endl;
     exit(0);
   }
   num_outer_nodes = file_points.size() / 3;
@@ -42,7 +42,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
   std::vector<double> file_hole_points, file_hole_weights;
   string hole_line;
   ifstream
-  myholefile(data_dir + "tri570.txt");
+  myholefile(data_dir + "tri240.txt");
   if (myholefile.is_open()) {
     while (getline(myholefile, hole_line)) {
       stringstream s_stream(hole_line);
@@ -58,10 +58,14 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
     myholefile.close();
   }
   int num_hole_points = file_hole_points.size() / 3;
+  if (perturbation_parameters.size() == 0) {
+    perturbation_parameters.push_back(0.5);
+  }
 
   if (holes.size() == 0) {
     Hole hole;
-    hole.center = PointVec(0.5, 0.5, 0.5);
+    hole.center = PointVec(perturbation_parameters[0], perturbation_parameters[0],
+                           perturbation_parameters[0]);
     hole.radius = 0.1;
     hole.num_nodes = num_hole_points;
     holes.push_back(hole);

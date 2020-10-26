@@ -11,6 +11,7 @@
 #include "kern_interp/quadtree/quadtree.h"
 #include "kern_interp/linear_solve.h"
 
+#define BLENDER_TESTING 0
 
 namespace kern_interp {
 
@@ -208,6 +209,15 @@ void linear_solve(const SkelFactorization& skel_factorization,
     *alpha = ki_Mat(quadtree.U.width(), 1);
     skel_factorization.multiply_connected_solve(quadtree, mu, alpha, f);
   }
+
+  if (BLENDER_TESTING) {
+    std::ofstream potential_out;
+    potential_out.open("output/data/potential_output.txt");
+    for (int i = 0; i < mu->height(); i++) {
+      potential_out << mu->get(i, 0)  << std::endl;
+    }
+    potential_out.close();
+  }
 }
 
 
@@ -338,11 +348,13 @@ void get_domain_points3d(int domain_size, std::vector<double>* points,
 
 
 double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
-  int num_threads = 4;
+  int num_threads = 8;
 
   QuadTree quadtree;
+  std::cout << "initialize tree...";
   quadtree.initialize_tree(boundary, kernel.solution_dimension,
                            kernel.domain_dimension);
+  std::cout << "done" << std::endl;
 
   SkelFactorization skel_factorization(id_tol, num_threads);
 
@@ -357,33 +369,41 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
                                     kernel.domain_dimension);
     quadtree.U = U;
     quadtree.Psi = Psi;
+    std::cout << "skeletonize...";
+    double start = omp_get_wtime();
     skel_factorization.skeletonize(kernel, &quadtree);
-
+    std::cout << "done" << std::endl;
+    double end = omp_get_wtime();
+    std::cout << "Skel time: " << (end - start) << std::endl;
     ki_Mat mu, alpha;
+    std::cout << "linear solve...";
+    start = omp_get_wtime();
     linear_solve(skel_factorization, quadtree, boundary->boundary_values, &mu,
                  &alpha);
+    end = omp_get_wtime();
+    std::cout << "done" << std::endl;
+    std::cout << "Solve time " << (end - start) << std::endl;
     ki_Mat stacked(mu.height() + alpha.height(), 1);
     stacked.set_submatrix(0, mu.height(), 0, 1, mu);
     stacked.set_submatrix(mu.height(), stacked.height(), 0, 1, alpha);
 
     std::vector<int> all_dofs;
-    for (int i = 0; i < kernel.solution_dimension * boundary->weights.size();
-         i++) {
+    for (int i = 0;
+         i < kernel.solution_dimension * (boundary->points.size() /
+                                          quadtree.domain_dimension); i++) {
       all_dofs.push_back(i);
     }
     ki_Mat kern = kernel(all_dofs, all_dofs);
-    dense = ki_Mat(all_dofs.size() + U.width(), all_dofs.size() +U.width());
-    ki_Mat ident( U.width(),  U.width());
-    ident.eye( U.width());
+    dense = ki_Mat(all_dofs.size() + U.width(), all_dofs.size() + U.width());
+    ki_Mat ident(U.width(),  U.width());
+    ident.eye(U.width());
     dense.set_submatrix(0, all_dofs.size(), 0, all_dofs.size(), kern);
     dense.set_submatrix(0, all_dofs.size(), all_dofs.size(), dense.width(), U);
     dense.set_submatrix(all_dofs.size(), dense.height(),
                         0, all_dofs.size(), Psi);
     dense.set_submatrix(all_dofs.size(), dense.height(),
                         all_dofs.size(), dense.width(), -ident);
-
     ki_Mat fzero_prime = dense * stacked;
-
     ki_Mat err1 = (fzero_prime(0, mu.height(), 0, 1)
                    - boundary->boundary_values);
     ki_Mat err2 = (fzero_prime(mu.height(), fzero_prime.height(), 0, 1));
@@ -396,7 +416,9 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     ki_Mat mu;
     linear_solve(skel_factorization, quadtree, boundary->boundary_values, &mu);
     std::vector<int> all_dofs;
-    for (int i = 0; i < kernel.solution_dimension * boundary->weights.size();
+    for (int i = 0;
+         i < kernel.solution_dimension * (boundary->points.size() /
+                                          quadtree.domain_dimension);
          i++) {
       all_dofs.push_back(i);
     }
@@ -406,6 +428,7 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     double end = omp_get_wtime();
     // std::cout << "Big kern call took " << (end - start) << std::endl;
     ki_Mat err = (bigK * mu) - boundary->boundary_values;
+    std::cout << "norm " << boundary->boundary_values.vec_two_norm() << std::endl;
     return err.vec_two_norm() / boundary->boundary_values.vec_two_norm();
   }
 }

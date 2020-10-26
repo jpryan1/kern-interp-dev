@@ -43,7 +43,7 @@ struct InteractionLists {
 };
 
 struct QuadTreeLevel;
-struct HalfLevelNode;
+struct MidLevelNode;
 
 struct QuadTreeNode {
   int level, dofs_below;
@@ -62,7 +62,7 @@ struct QuadTreeNode {
 
   std::vector<lapack_int> X_rr_piv;
 
-  std::vector<HalfLevelNode*> recompressor_nodes;
+  std::vector<MidLevelNode*> recompressor_nodes, recompressor_third_nodes;
 
   std::vector<double> center;
   QuadTreeNode() {
@@ -71,37 +71,35 @@ struct QuadTreeNode {
 };
 
 
-struct HalfLevelNode {
+struct MidLevelNode {
   int partner_level;
+  bool is_third_level=false;
+
   bool X_rr_is_LU_factored = false, compressed = false;
-
-  double side_length;
+  double pxy_rad;
   std::vector<QuadTreeNode*> containing_nodes;
-
   InteractionLists dof_lists;
   // For inverse operator
   ki_Mat T, L, U, X_rr, schur_update, X_rr_lu;
   std::vector<lapack_int> X_rr_piv;
   std::vector<double> center;
-  HalfLevelNode() {}
+  MidLevelNode() {}
 };
 
 
-struct HalfLevel {
-  std::vector<HalfLevelNode*> nodes;
-  HalfLevel* half_level;
-  QuadTreeLevel* partner_level;
-  ~HalfLevel() {
-    for (HalfLevelNode* node : nodes) {
+struct MidLevel {
+  std::vector<MidLevelNode*> nodes;
+  bool is_third_level=false;
+  ~MidLevel() {
+    for (MidLevelNode* node : nodes) {
       delete node;
     }
   }
 };
 
-
 struct QuadTreeLevel {
   std::vector<QuadTreeNode*> nodes;
-  HalfLevel* half_level;
+  MidLevel *half_level, *third_level;
   ~QuadTreeLevel() {
     for (QuadTreeNode* node : nodes) {
       delete node;
@@ -125,6 +123,7 @@ class QuadTree {
                        int domain_dimension_);
   void compute_neighbor_lists();
   void compute_half_levels();
+  void compute_third_levels();
   void recursive_add(QuadTreeNode* node, std::vector<double> pt,
                      int mat_ind);
   void get_descendent_neighbors(QuadTreeNode* big, QuadTreeNode* small);
@@ -132,7 +131,7 @@ class QuadTree {
   void consolidate_node(QuadTreeNode* node);
   void reset();
   void reset(Boundary* boundary_);
-  void copy_into(QuadTree* new_tree) const;
+  void copy_into(QuadTree* new_tree, int mid_levels = 0) const;
   void mark_neighbors_and_parents(QuadTreeNode* node);
   void perturb(const Boundary& new_boundary);
   void sort_leaves();
@@ -141,29 +140,43 @@ class QuadTree {
   void remove_inactive_dofs_at_all_boxes();
   void remove_inactive_dofs_at_box(QuadTreeNode* node);
   void remove_hif_deactivated_dofs(QuadTreeNode* node);
+  void remove_third_deactivated_dofs(QuadTreeNode* node);
+
   void populate_half_level_dofs(int level);
+  void populate_third_level_dofs(int level);
+
+  void delete_recompressor(MidLevelNode* recomp);
 };
 
 
 
 void get_descendents_updates(ki_Mat* updates,
-                             const std::vector<int>& BN,
+                             const std::vector<int>& update_rows,
+                             const std::vector<int>& update_cols,
                              const QuadTreeNode* node,
                              std::set<const QuadTreeNode*>* visited_nodes = nullptr,
-                             std::set<const HalfLevelNode*>* visited_halfnodes = nullptr);
+                             std::set<const MidLevelNode*>* visited_halfnodes = nullptr,
+                             std::set<const MidLevelNode*>* visited_thirdnodes = nullptr);
 
-void get_update(ki_Mat* updates, const std::vector<int>& BN,
+void get_update(ki_Mat* updates,
+                const std::vector<int>& update_rows,
+                const std::vector<int>& update_cols,
                 const QuadTreeNode* node,
                 std::set<const QuadTreeNode*>* visited_nodes);
 
-void get_update(ki_Mat* updates, const std::vector<int>& BN,
-                const HalfLevelNode* node,
-                std::set<const HalfLevelNode*>* visited_halfnodes);
-void get_half_level_schur_updates(ki_Mat * updates,
-                                  const std::vector<int>& BN,
-                                  const HalfLevelNode * node,
-                                  std::set<const QuadTreeNode*>* visited_nodes,
-                                  std::set<const HalfLevelNode*>* visited_halfnodes) ;
+void get_update(ki_Mat* updates,
+                const std::vector<int>& update_rows,
+                const std::vector<int>& update_cols,
+                const MidLevelNode* node,
+                std::set<const MidLevelNode*>* visited_halfnodes);
+
+void get_mid_level_schur_updates(ki_Mat * updates,
+                                 const std::vector<int>& update_rows,
+                                 const std::vector<int>& update_cols,
+                                 const MidLevelNode * node,
+                                 std::set<const QuadTreeNode*>* visited_nodes,
+                                 std::set<const MidLevelNode*>* visited_halfnodes,
+                                 std::set<const MidLevelNode*>* visited_thirdnodes) ;
 }  // namespace kern_interp
 
 #endif  // KERN_INTERP_QUADTREE_QUADTREE_H_
