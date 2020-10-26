@@ -881,7 +881,6 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
   get_mid_level_schur_updates(&update_ia, inner_circle,
                               node->dof_lists.active_box,
                               node, nullptr, nullptr, nullptr);
-  std::cout<<"Updates size "<<update_ai.frob_norm()<<" "<<update_ia.frob_norm()<<std::endl;
   mat.set_submatrix(0, inner_circle.size(), 0, active_box.size(),
                     (*this)(inner_circle, active_box)
                     - update_ia, false, true);

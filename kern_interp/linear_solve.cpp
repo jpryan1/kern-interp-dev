@@ -404,6 +404,7 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     dense.set_submatrix(all_dofs.size(), dense.height(),
                         all_dofs.size(), dense.width(), -ident);
     ki_Mat fzero_prime = dense * stacked;
+    std::cout << "Dense cond " << dense.condition_number() << std::endl;
     ki_Mat err1 = (fzero_prime(0, mu.height(), 0, 1)
                    - boundary->boundary_values);
     ki_Mat err2 = (fzero_prime(mu.height(), fzero_prime.height(), 0, 1));
@@ -428,7 +429,7 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     double end = omp_get_wtime();
     // std::cout << "Big kern call took " << (end - start) << std::endl;
     ki_Mat err = (bigK * mu) - boundary->boundary_values;
-    std::cout<<"norm "<<boundary->boundary_values.vec_two_norm()<<std::endl;
+    std::cout << "norm " << boundary->boundary_values.vec_two_norm() << std::endl;
     return err.vec_two_norm() / boundary->boundary_values.vec_two_norm();
   }
 }

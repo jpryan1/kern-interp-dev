@@ -8,10 +8,13 @@
 #include "kern_interp/skel_factorization/skel_factorization.h"
 #include "kern_interp/kernel/kernel.h"
 
-#define USING_HIF 1
+#define USING_HIF 0
 
 namespace kern_interp {
-
+//TODOS 
+  // Kernel update data and compute diags are all awkward right now
+  // Tree child idx iterator, the current thing is unreadable unintuitive
+  // 
 
 std::vector<int> big_to_small(const std::vector<int>& big,
                               const std::unordered_map<int,
@@ -181,34 +184,34 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
 
   int nodes_left = tree->solution_dimension * (kernel.boundary_points_.size() /
                    tree->domain_dimension);
-  int prev_nodes_left = nodes_left;
-  for (int level = lvls - 1; level >= lvls - 1 ; level--) {
+  for (int level = lvls - 1; level >= 1  ; level--) {
     end = omp_get_wtime();
-    prev_nodes_left = nodes_left;
     std::cout << "Nodes left " << nodes_left << std::endl;
     start = end;
     tree->remove_inactive_dofs_at_level(level);
     QuadTreeLevel* current_level = tree->levels[level];
-    // #pragma omp parallel for num_threads(fact_threads)
-    // for (int n = 0; n < current_level->nodes.size(); n++) {
-    //   QuadTreeNode* current_node = current_level->nodes[n];
+    #pragma omp parallel for num_threads(fact_threads)
+    for (int n = 0; n < current_level->nodes.size(); n++) {
+      QuadTreeNode* current_node = current_level->nodes[n];
 
-    //   if (current_node->compressed || current_node->dof_lists.active_box.size()
-    //       < MIN_DOFS_TO_COMPRESS) {
-    //     if (current_node->compressed) nodes_left -=
-    //         current_node->dof_lists.redundant.size();
-    //     continue;
-    //   }
-    //   double ids = omp_get_wtime();
-    //   if (id_compress(kernel, tree, current_node) == 0) {
-    //     continue;
-    //   }
-    //   double ide = omp_get_wtime();
-    //   nodes_left -= current_node->T.width();
-    //   // std::cout << "Took " << current_node->T.width() << " from node " << std::endl;
-    //   decouple(kernel, current_node);
-    //   node_counter++;
-    // }
+      if (current_node->compressed || current_node->dof_lists.active_box.size()
+          < MIN_DOFS_TO_COMPRESS) {
+
+        if (current_node->compressed) nodes_left -=
+            current_node->dof_lists.redundant.size();
+        continue;
+      }
+      double ids = omp_get_wtime();
+      if (id_compress(kernel, tree, current_node) == 0) {
+
+        continue;
+      }
+      double ide = omp_get_wtime();
+      nodes_left -= current_node->T.width();
+      // std::cout << "Took " << current_node->T.width() << " from node " << std::endl;
+      decouple(kernel, current_node);
+      node_counter++;
+    }
     std::cout << "nodes left after full level " << nodes_left << std::endl;
     if (!USING_HIF) continue;
     tree->populate_half_level_dofs(level);
@@ -216,20 +219,32 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
 
     int halfdofs = 0;
     #pragma omp parallel for num_threads(fact_threads)
-    for (int n = 0; n < 2; n++) { // current_half_level->nodes.size(); n++) {
+    for (int n = 0; n < current_half_level->nodes.size(); n++) {
       MidLevelNode* current_half_level_node = current_half_level->nodes[n];
       halfdofs += current_half_level_node->dof_lists.active_box.size();
+
+      // std::cout << "hn size center " <<
+      //             current_half_level_node->dof_lists.active_box.size() << " " <<
+      //             current_half_level_node->center[0]
+      //             << " " << current_half_level_node->center[1] << std::endl;
       if (current_half_level_node->compressed
           || current_half_level_node->dof_lists.active_box.size() <
           MIN_DOFS_TO_COMPRESS / 4) {
+        // std::cout << "didn't halfnode not enough " <<
+        //           current_half_level_node->dof_lists.active_box.size() << " " <<
+        //           current_half_level_node->center[0]
+        //           << " " << current_half_level_node->center[1] << std::endl;
+
         if (current_half_level_node->compressed) nodes_left -=
             current_half_level_node->dof_lists.redundant.size();
-
         continue;
       }
       // std::cout<<"Tried recompression on halfbox with "<<current_half_level_node->dof_lists.active_box.size() <<" dofs"<<std::endl;
       if (id_compress(kernel, tree, current_half_level_node) == 0) {
         // std::cout<<"failed"<<std::endl;
+        // std::cout << "didn't halfnode at " << current_half_level_node->center[0] << " "
+        //           << current_half_level_node->center[1] << std::endl;
+
         continue;
       }
       // std::cout<<"Successfully removed "<<current_half_level_node->T.width()<<std::endl;
@@ -253,6 +268,8 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
         if (current_third_level_node->compressed
             || current_third_level_node->dof_lists.active_box.size() <
             MIN_DOFS_TO_COMPRESS / 4) {
+          if (current_third_level_node->compressed) nodes_left -=
+              current_third_level_node->dof_lists.redundant.size();
           continue;
         }
         if (id_compress(kernel, tree, current_third_level_node) == 0) {
@@ -260,7 +277,8 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
         }
         nodes_left -= current_third_level_node->T.width();
         decouple(kernel, current_third_level_node);
-        node_counter++;
+        node_counter++;      std::cout<<"compressed"<<std::endl;
+
       }
       std::cout << "nodes left after thirdlevel " << nodes_left << " found " <<
                 thirddofs << " to compress" << std::endl;
@@ -604,7 +622,6 @@ void SkelFactorization::solve(const QuadTree & quadtree, ki_Mat * x,
       }
     }
     if (quadtree.domain_dimension == 3) {
-
       for (int level = lvls - 1; level >= 0; level--) {
         MidLevel* current_level = quadtree.levels[level]->third_level;
         for (int n = 0; n < current_level->nodes.size(); n++) {
@@ -713,8 +730,9 @@ void SkelFactorization::solve(const QuadTree & quadtree, ki_Mat * x,
 
 
   for (int level = 0; level < lvls; level++) {
-    if (quadtree.domain_dimension == 3) {
-      if (USING_HIF) {
+    if (USING_HIF) {
+
+      if (quadtree.domain_dimension == 3) {
         MidLevel* current_third_level = quadtree.levels[level]->third_level;
         #pragma omp parallel for num_threads(fact_threads)
         for (int n = current_third_level->nodes.size() - 1; n >= 0; n--) {

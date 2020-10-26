@@ -144,6 +144,8 @@ class QuadTree {
 
   void populate_half_level_dofs(int level);
   void populate_third_level_dofs(int level);
+
+  void delete_recompressor(MidLevelNode* recomp);
 };
 
 
