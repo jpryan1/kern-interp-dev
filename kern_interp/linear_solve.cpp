@@ -313,11 +313,11 @@ void get_domain_points3d(int domain_size, std::vector<double>* points,
 
 
   for (int i = 0; i < domain_size; i++) {
-    double x = -0. + ((i + 0.0) / (domain_size - 1)) * (2);
+    double x = min + ((i + 0.0) / (domain_size - 1)) * (max-min);
     for (int j = 0; j < domain_size; j++) {
-      double y = -0. + ((j + 0.0) / (domain_size - 1)) * (2);
+      double y = min + ((j + 0.0) / (domain_size - 1)) * (max-min);
       for (int k = 0; k < domain_size; k++) {
-        double z = -0. + ((k + 0.0) / (domain_size - 1)) * (2);
+        double z = min + ((k + 0.0) / (domain_size - 1)) * (max-min);
         if (!boundary->is_in_domain(PointVec(x, y, z))) {
           continue;
         }
