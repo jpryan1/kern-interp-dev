@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 import matplotlib.cm as cm
 
-FILENAME="cow_mesh"
+FILENAME="pipe_mesh"
 ply_lines = open("ply_files/"+FILENAME+".ply", "r").readlines()
 
 line_idx = 0
@@ -34,8 +34,13 @@ for i in range(num_verts):
     points.append(point)
 
 points = np.array(points)
-
+for i in range(3):
+    print(min(points[:,i]))
+    print(max(points[:,i]))
 printout = ""
+total_area=0
+min_area = 200
+max_area = 0
 for i in range(num_faces):
     line = ply_lines[line_idx]
     line_idx+=1
@@ -43,18 +48,26 @@ for i in range(num_faces):
     tri = [int(ls[i]) for i in range(1,4)]
 
     corners = points[tri]
-    a = np.arccos(np.dot(corners[0], corners[1])/(np.linalg.norm(corners[0])*np.linalg.norm(corners[1])))
-    b = np.arccos(np.dot(corners[0], corners[2])/(np.linalg.norm(corners[0])*np.linalg.norm(corners[2])))
-    c = np.arccos(np.dot(corners[1], corners[2])/(np.linalg.norm(corners[1])*np.linalg.norm(corners[2])))
+    a = np.linalg.norm(corners[0]-corners[1])
+    b = np.linalg.norm(corners[0]-corners[2])
+    c = np.linalg.norm(corners[1]-corners[2])
+    cs = np.cross(corners[1]-corners[0], corners[2]-corners[0])
+    cs /= np.linalg.norm(cs)
+    # b = np.arccos(np.dot(corners[0], corners[2])/(np.linalg.norm(corners[0])*np.linalg.norm(corners[2])))
+    # c = np.arccos(np.dot(corners[1], corners[2])/(np.linalg.norm(corners[1])*np.linalg.norm(corners[2])))
     s = (a+b+c)/2
     # if(s*(s-a)*(s-b)*(s-c) < 0):
     #     print("inside ", s*(s-a)*(s-b)*(s-c), " points ", corners, " s ", s, " ", a,b,c)
     area = np.sqrt((s*(s-a)*(s-b)*(s-c)))
+    total_area += area
+    max_area = max(max_area,area)
+    min_area = min(min_area,area)
     mid = corners[0]+corners[1]+corners[2]
     mid = mid/3.0
-    mid = mid/np.linalg.norm(mid)
-    printout += str(mid[0])+","+str(mid[1])+","+str(mid[2])+","+str(area)+"\n"
-
+    # mid = mid/np.linalg.norm(mid)
+    printout += str(mid[0])+","+str(mid[1])+","+str(mid[2])+","+str(cs[0])+","+str(cs[1])+","+str(cs[2])+","+str(area)+"\n"
+print("min max ",min_area, max_area)
+print("Total Area: "+str(total_area))
 outp = open("kern-interp_inputs/"+FILENAME+".txt", "w")
 outp.write(printout)
 outp.close()

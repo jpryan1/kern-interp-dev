@@ -39,8 +39,9 @@ if __name__ == "__main__":
     from scipy.spatial import ConvexHull
     # fig, ax = plt.subplots(figsize=(14,14))
     # ax = fig.gca(projection='3d')
-    N=60
+    N=30
     points = []
+    ellipticity = 0.5
     for j in range(N):
         jflt = float(j)/(N-1)
         sz = bumpfun(jflt, 2*N) #1 to 41 to 1
@@ -51,14 +52,17 @@ if __name__ == "__main__":
             phi = jflt*np.pi
 
             # phi = np.arccos(1-2*jflt)
-            points.append(  [np.cos(theta)*np.sin(phi)*np.sqrt(0.5), np.sin(theta)*np.sin(phi)*np.sqrt(0.5), np.cos(phi)])
+            # points.append(  [0.1*np.cos(theta)*np.sin(phi)*np.sqrt(ellipticity), 0.1*np.sin(theta)*np.sin(phi)*np.sqrt(ellipticity), 0.1*np.cos(phi)])
+            pt= [0.5*np.cos(theta)*np.sin(phi)*np.sqrt(ellipticity), 0.5*np.cos(phi), 0.5*np.sin(theta)*np.sin(phi)*np.sqrt(ellipticity)]
+            points.append( pt)
 
     points = np.array(points)
     tessellation = ConvexHull( points )
     tris = tessellation.simplices  # ntri, dim+1
     num_verts = len(points)
-    print(num_verts)
+    
     num_faces = len(tris)
+    print(num_faces)
     printout = """ply
 format ascii 1.0
 element vertex """+str(num_verts)+"""
@@ -93,7 +97,7 @@ end_header\n"""
         # mid = mid/3.0
         # mid = mid/np.linalg.norm(mid)
         # printout += str(mid[0])+","+str(mid[1])+","+str(mid[2])+","+str(area)+"\n"
-    outp = open("ellipsoid.ply", "w")
+    outp = open("ply_files/ellipsoid.ply", "w")
     outp.write(printout)
     outp.close()
 # print("N", N, " num triangles ",len(tessellation.simplices))

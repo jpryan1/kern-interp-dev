@@ -39,10 +39,10 @@ if __name__ == "__main__":
     from scipy.spatial import ConvexHull
     # fig, ax = plt.subplots(figsize=(14,14))
     # ax = fig.gca(projection='3d')
-    N=21
+    N=14
     points = []
     cyl_height = 10
-    height_disc = 60
+    height_disc = 30
     for j in range(int(N/2)):
         jflt = float(j)/(N-1)
         sz = bumpfun(jflt, 2*N) #1 to 41 to 1
@@ -76,7 +76,6 @@ if __name__ == "__main__":
     for j in range(int(N/2)+1, N):
         jflt = float(j)/(N-1)
         sz = bumpfun(jflt, 2*N) #1 to 41 to 1
-        print(j, " ", sz)
         for i in range(sz):
             iflt = float(i)/(sz)
             
@@ -126,7 +125,7 @@ end_header\n"""
         # mid = mid/3.0
         # mid = mid/np.linalg.norm(mid)
         # printout += str(mid[0])+","+str(mid[1])+","+str(mid[2])+","+str(area)+"\n"
-    outp = open("tri"+str(len(tris))+"_mini.ply", "w")
+    outp = open("ply_files/pipe_mesh.ply", "w")
     outp.write(printout)
     outp.close()
 # print("N", N, " num triangles ",len(tessellation.simplices))
