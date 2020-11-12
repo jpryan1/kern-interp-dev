@@ -11,7 +11,7 @@
 #include "kern_interp/quadtree/quadtree.h"
 #include "kern_interp/kernel/kernel.h"
 #include "kern_interp/linear_solve.h"
-#include "kern_interp/boundaries/sphere.h"
+#include "kern_interp/boundaries/concentric_spheres.h"
 #include "kern_interp/boundaries/donut.h"
 
 namespace kern_interp {
@@ -26,7 +26,7 @@ double laplace_error3d(const ki_Mat& domain,
     double x1 = domain_points[i + 1];
     double x2 = domain_points[i + 2];
     PointVec x(x0, x1, x2);
-    PointVec center(0.5, 0.5, 0.5);
+    PointVec center(0.0, 0.0, 0.0);
     double r = (x - center).norm();
     if (!boundary->is_in_domain(x)) {
       continue;

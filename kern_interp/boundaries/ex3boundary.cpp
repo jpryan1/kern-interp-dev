@@ -17,8 +17,8 @@ void Ex3Boundary::get_spline_points(std::vector<double>* x0_spline_points,
     double x =  0.375 * cos(ang) * (sin(5 * ang) + 4);
     double y =  0.375 * sin(ang) * (sin(5 * ang) + 4);
 
-    x0_spline_points->push_back(0.5 + x);
-    x1_spline_points->push_back(0.5 + y);
+    x0_spline_points->push_back(0.0 + x);
+    x1_spline_points->push_back(0.0 + y);
   }
 }
 
@@ -61,14 +61,14 @@ void Ex3Boundary::initialize(int N, BoundaryCondition bc) {
   double ang1 = perturbation_parameters[0];
   double x1 =  0.2 * cos(ang1) * (sin(5 * ang1) + 4);
   double y1 =  0.2 * sin(ang1) * (sin(5 * ang1) + 4);
-  star1.center = PointVec(0.5 + x1, 0.5 + y1);
+  star1.center = PointVec(0.0 + x1, 0.0 + y1);
   star1.radius = 0.3;
   star1.num_nodes =  STAR_NUM_SPLINE_POINTS * STAR_NODES_PER_SPLINE;
   holes.push_back(star1);
   double ang2 = perturbation_parameters[1];
   double x2 =  0.2 * cos(ang2) * (sin(5 * ang2) + 4);
   double y2 =  0.2 * sin(ang2) * (sin(5 * ang2) + 4);
-  star2.center = PointVec(0.5 + x2, 0.5 + y2);
+  star2.center = PointVec(0.0 + x2, 0.0 + y2);
   star2.radius = 0.3;
   star2.num_nodes =  STAR_NUM_SPLINE_POINTS * STAR_NODES_PER_SPLINE;
   holes.push_back(star2);

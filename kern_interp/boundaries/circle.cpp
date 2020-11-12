@@ -12,8 +12,8 @@ void Circle::initialize(int N, BoundaryCondition bc) {
   curvatures.clear();
   for (int i = 0; i < N; i++) {
     double ang = i * 2.0 * M_PI / N;
-    double x = 0.5 + 0.25 * cos(ang);
-    double y = 0.5 + 0.25 * sin(ang);
+    double x = 0.0 + 0.25 * cos(ang);
+    double y = 0.0 + 0.25 * sin(ang);
     points.push_back(x);
     points.push_back(y);
     normals.push_back(cos(ang));
@@ -32,8 +32,8 @@ void Circle::initialize(int N, BoundaryCondition bc) {
 }
 
 bool Circle::is_in_domain(const PointVec& a) const {
-  double x = a.a[0] - 0.5;
-  double y = a.a[1] - 0.5;
+  double x = a.a[0] - 0.0;
+  double y = a.a[1] - 0.0;
   double eps = 1e-2;
 
   double dist = sqrt(pow(x, 2) + pow(y, 2));

@@ -250,8 +250,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
         }
         nodes_left -= current_third_level_node->T.width();
         decouple(kernel, current_third_level_node);
-        node_counter++;      std::cout << "compressed" << std::endl;
-
+        node_counter++;      
       }
       std::cout << "nodes left after thirdlevel " << nodes_left << " found " <<
                 thirddofs << " to compress" << std::endl;
@@ -334,7 +333,6 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
   }
   ki_Mat modified_Psi = tree->Psi.transpose();
   ki_Mat modified_U = tree->U;
-
   // First apply the sweep matrices to x and U to modify them.
   for (int level = lvls - 1; level >= 0; level--) {
     QuadTreeLevel* current_level = tree->levels[level];
@@ -386,7 +384,6 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
     }
 
   }
-
   // Now apply the other sweep matrices to Psi to modify it.
   for (int level = lvls - 1; level >= 0; level--) {
     QuadTreeLevel* current_level = tree->levels[level];
@@ -518,12 +515,12 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                   - ident - (modified_Psi(0, modified_Psi.height(),
                                           allredundant) * Dinv_C_nonzero));
   double slustart = omp_get_wtime();
-  // std::cout << "S height " << S.height() << std::endl;
+  std::cout << "S height " << S.height() << std::endl;
   openblas_set_num_threads(fact_threads);
   S.LU_factorize(&tree->S_LU, &tree->S_piv);
   openblas_set_num_threads(1);
   double sluend = omp_get_wtime();
-  // std::cout << "S LU factorization: " << (sluend - slustart) << std::endl;
+  std::cout << "S LU factorization: " << (sluend - slustart) << std::endl;
 
 }
 

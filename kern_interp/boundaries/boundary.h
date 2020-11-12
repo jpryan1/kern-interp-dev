@@ -35,6 +35,7 @@ enum BoundaryCondition {
   LAPLACE_CHECK_2D,
   LAPLACE_CHECK_3D,
   ELECTRON_3D,
+  ELLIPSOID_HOLES,
   STOKES_3D,
   STOKES_3D_MIX,
   STOKES_2D_MIX,
@@ -49,6 +50,7 @@ class Boundary {
   std::vector<Hole> holes;
   ki_Mat boundary_values;
 
+  static bool comp_ang(PointVec a, PointVec b);
   virtual std::unique_ptr<Boundary> clone() const = 0;
   virtual ~Boundary() {}
   void set_boundary_values_size(BoundaryCondition bc);
@@ -78,6 +80,7 @@ class CubicBoundary : public Boundary {
   int num_right_intersections(double x, double y, int index);
   bool is_in_domain(const PointVec& a) const override;
 };
+
 
 }  // namespace kern_interp
 
