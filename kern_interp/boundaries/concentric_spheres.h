@@ -1,22 +1,27 @@
 // Copyright 2019 John Paul Ryan
-#ifndef KERN_INTERP_BOUNDARIES_SPHERE_H_
-#define KERN_INTERP_BOUNDARIES_SPHERE_H_
+#ifndef KERN_INTERP_BOUNDARIES_CONCENTRIC_SPHERES_H_
+#define KERN_INTERP_BOUNDARIES_CONCENTRIC_SPHERES_H_
 
 #include <memory>
 #include "kern_interp/boundaries/boundary.h"
+#include "kern_interp/boundaries/cross_section_border.h"
 
 namespace kern_interp {
 
 class Sphere : public Boundary {
  public:
   double r = 1.0;
+    CrossSectionBorder* cross_section_border;
+
   void initialize(int N, BoundaryCondition bc) override;
   bool is_in_domain(const PointVec& a) const override;
   std::unique_ptr<Boundary> clone() const override {
     return std::make_unique<Sphere>(*this);
   }
+  void create_cross_section_border();
+
 };
 
 }  // namespace kern_interp
 
-#endif  // KERN_INTERP_BOUNDARIES_SPHERE_H_
+#endif  // KERN_INTERP_BOUNDARIES_CONCENTRIC_SPHERES_H_

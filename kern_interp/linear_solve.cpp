@@ -115,6 +115,7 @@ ki_Mat initialize_Psi_mat(const Kernel::Pde pde,
   switch (pde) {
     case Kernel::Pde::LAPLACE: {
       if (domain_dimension == 3) {
+
         Psi = ki_Mat(holes.size(), boundary.points.size() / 3);
         for (int i = 0; i < boundary.points.size(); i += 3) {
           PointVec x = PointVec(boundary.points[i], boundary.points[i + 1],
@@ -144,7 +145,6 @@ ki_Mat initialize_Psi_mat(const Kernel::Pde pde,
     }
     case Kernel::Pde::STOKES: {
       if (domain_dimension == 3) {
-
         Psi = ki_Mat(6 * holes.size(), boundary.points.size());
         for (int i = 0; i < boundary.points.size(); i += 3) {
           PointVec x = PointVec(boundary.points[i], boundary.points[i + 1],
@@ -209,7 +209,9 @@ void linear_solve(const SkelFactorization& skel_factorization,
     *alpha = ki_Mat(quadtree.U.width(), 1);
     skel_factorization.multiply_connected_solve(quadtree, mu, alpha, f);
   }
-
+  // for (int i = 0; i < mu->height(); i++) {
+  //   std::cout << mu->get(i, 0)  << std::endl;
+  // }
   if (BLENDER_TESTING) {
     std::ofstream potential_out;
     potential_out.open("output/data/potential_output.txt");
@@ -238,7 +240,7 @@ void schur_solve(const SkelFactorization & skel_factorization,
     double start = omp_get_wtime();
     linear_solve(skel_factorization, quadtree, f, &mu, &alpha);
     double end = omp_get_wtime();
-    // std::cout << "solve time " << end - start << std::endl;
+    std::cout << "solve time " << end - start << std::endl;
     *solution = (K_domain * mu) + (U_forward * alpha);
     // std::cout<<"Alpha "<<alpha.get(0,0)<<" "<<alpha.get(1,0)<<" "<<alpha.get(2,0)<<std::endl;
   }
@@ -265,6 +267,7 @@ ki_Mat boundary_integral_solve(const Kernel& kernel, const Boundary& boundary,
   quadtree->U = U;
   quadtree->Psi = Psi;
   double start = omp_get_wtime();
+  std::cout << "Starting skel " << std::endl;
   skel_factorization.skeletonize(kernel, quadtree);
   double end = omp_get_wtime();
   std::cout  << "skel time " << end - start << std::endl;
@@ -310,11 +313,11 @@ void get_domain_points3d(int domain_size, std::vector<double>* points,
 
 
   for (int i = 0; i < domain_size; i++) {
-    double x = -0.5 + ((i + 0.0) / (domain_size - 1)) * (2);
+    double x = -0. + ((i + 0.0) / (domain_size - 1)) * (2);
     for (int j = 0; j < domain_size; j++) {
-      double y = -0.5 + ((j + 0.0) / (domain_size - 1)) * (2);
+      double y = -0. + ((j + 0.0) / (domain_size - 1)) * (2);
       for (int k = 0; k < domain_size; k++) {
-        double z = -0.5 + ((k + 0.0) / (domain_size - 1)) * (2);
+        double z = -0. + ((k + 0.0) / (domain_size - 1)) * (2);
         if (!boundary->is_in_domain(PointVec(x, y, z))) {
           continue;
         }
@@ -451,7 +454,7 @@ ki_Mat stokes_true_sol(const std::vector<double>& domain_points,
       continue;
     }
 
-    PointVec center(0.5, 0.5);
+    PointVec center(0., 0.);
     PointVec r = x - center;
     PointVec true_vec = PointVec(-r.a[1], r.a[0]);
     switch (boundary->holes.size()) {
@@ -519,7 +522,7 @@ double stokes_err_3d(const ki_Mat& domain,
       continue;
     }
 
-    PointVec center(0.5, 0.5, 0.5);
+    PointVec center(0., 0.0, 0.0);
     PointVec point = x - center;
 
     double r, phi;

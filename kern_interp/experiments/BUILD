@@ -2,8 +2,29 @@ package(default_visibility = ["//visibility:public"])
 load("//kern_interp:buildvars.bzl", "COPTS")
 
 cc_binary(
-  name = "experiment_one",
-  srcs = ["experiment_one.cpp"],
+  name = "ex1_concentric_spheres",
+  srcs = ["ex1_concentric_spheres.cpp"],
+  copts= COPTS,
+  deps = [
+      "//kern_interp:ki_mat",
+      "//kern_interp/skel_factorization",
+      "//kern_interp/quadtree",
+      "//kern_interp/boundaries",
+      "//kern_interp:linear_solve",
+      ],
+  linkopts = ["-llapacke",
+          "-lopenblas",
+
+        "-llapack",
+        "-lblas",
+        "-lgomp"]
+
+)
+
+
+cc_binary(
+  name = "ex2_pipe_w_ellipsoid_holes",
+  srcs = ["ex2_pipe_w_ellipsoid_holes.cpp"],
   copts= COPTS,
   deps = [
       "//kern_interp:ki_mat",
@@ -213,10 +234,9 @@ cc_binary(
 
 )
 
-
 cc_binary(
-  name = "two_hole_sphere",
-  srcs = ["two_hole_sphere.cpp"],
+  name = "mesh",
+  srcs = ["mesh.cpp"],
   copts= COPTS,
   deps = [
       "//kern_interp:ki_mat",

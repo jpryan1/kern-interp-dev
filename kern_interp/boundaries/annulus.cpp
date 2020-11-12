@@ -14,10 +14,10 @@ void Annulus::initialize(int N, BoundaryCondition bc) {
 
   if (holes.size() == 0) {
     Hole hole;
-    hole.center = PointVec(0.88, 0.61);
+    hole.center = PointVec(0.38, 0.11);
     hole.radius = 0.1;
     holes.push_back(hole);
-    hole.center = PointVec(0.12, 0.39);
+    hole.center = PointVec(-0.38, -0.11);
     holes.push_back(hole);
   }
 
@@ -26,8 +26,8 @@ void Annulus::initialize(int N, BoundaryCondition bc) {
 
   for (int i = 0; i < N; i++) {
     double ang = i * 2.0 * M_PI / N;
-    double x = 0.5 + cos(ang);
-    double y = 0.5 + sin(ang);
+    double x = 0.0 + cos(ang);
+    double y = 0.0 + sin(ang);
     points.push_back(x);
     points.push_back(y);
     normals.push_back(cos(ang));
@@ -65,8 +65,8 @@ void Annulus::initialize(int N, BoundaryCondition bc) {
 
 
 bool Annulus::is_in_domain(const PointVec& a) const {
-  double x = a.a[0] - 0.5;
-  double y = a.a[1] - 0.5;
+  double x = a.a[0] - 0.0;
+  double y = a.a[1] - 0.0;
   double eps = 1e-2;
 
   double dist = sqrt(pow(x, 2) + pow(y, 2));

@@ -137,11 +137,11 @@ void run_experiment3(int num_inner_threads) {
                            domain_dimension);
 
   std::vector<double> domain_points;
-  domain_points.push_back(0.5 - DELTA_X);
-  domain_points.push_back(0.5 + DELTA_X);
+  domain_points.push_back(0.0 - DELTA_X);
+  domain_points.push_back(0.0 + DELTA_X);
   if (!THREE_B) {
-    domain_points.push_back(0.5 + DELTA_X);
-    domain_points.push_back(0.5 + DELTA_X);
+    domain_points.push_back(0.0 + DELTA_X);
+    domain_points.push_back(0.0 + DELTA_X);
   }
 
   Kernel kernel(solution_dimension, domain_dimension,

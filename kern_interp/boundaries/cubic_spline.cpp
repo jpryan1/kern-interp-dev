@@ -18,8 +18,8 @@ void CubicSpline::get_spline_points(std::vector<double>* x0_spline_points,
     double x =  0.375 * cos(ang) * (sin(5 * ang) + 4);
     double y =  0.375 * sin(ang) * (sin(5 * ang) + 4);
 
-    x0_spline_points->push_back(0.5 + x);
-    x1_spline_points->push_back(0.5 + y);
+    x0_spline_points->push_back(0.0 + x);
+    x1_spline_points->push_back(0.0 + y);
   }
 }
 

@@ -8,16 +8,22 @@
 namespace kern_interp {
 
 
+bool Boundary::comp_ang(PointVec a, PointVec b) {
+  return atan2(a.a[1], a.a[0]) < atan2(b.a[1], b.a[0]);
+}
+
+
 void Boundary::set_boundary_values_size(BoundaryCondition bc) {
   int num_points = weights.size();
 
   switch (bc) {
     case SINGLE_ELECTRON:
     case EX3A:
-    case ALL_ONES:
     case ALL_NEG_ONES:
     case ALL_ZEROS:
     case ELECTRON_3D:
+    case ELLIPSOID_HOLES:
+    case ALL_ONES:
     case LAPLACE_CHECK_2D:
     case LAPLACE_CHECK_3D:
       boundary_values = ki_Mat(num_points, 1);
@@ -66,8 +72,8 @@ void Boundary::apply_boundary_condition(int start_point_idx, int end_point_idx,
       }
       case LAPLACE_CHECK_2D: {
 
-        double r = sqrt(pow(points[2 * point_idx] - 0.5, 2)
-                        + pow(points[2 * point_idx + 1] - 0.5, 2));
+        double r = sqrt(pow(points[2 * point_idx] - 0.0, 2)
+                        + pow(points[2 * point_idx + 1] - 0.0, 2));
         if (r < 0.6) {
           boundary_values.set(point_idx, 0, 1.);
         } else {
@@ -174,8 +180,8 @@ void Boundary::apply_boundary_condition(int start_point_idx, int end_point_idx,
         break;
       }
       case STOKES_2D_MIX: {
-        double r = sqrt(pow(points[2 * point_idx] - 0.5, 2)
-                        + pow(points[2 * point_idx + 1] - 0.5, 2)
+        double r = sqrt(pow(points[2 * point_idx] - 0.0, 2)
+                        + pow(points[2 * point_idx + 1] - 0.0, 2)
                        );
         if (r > 0.9) {
           boundary_values.set(2 * point_idx, 0, 1.0);
@@ -188,21 +194,37 @@ void Boundary::apply_boundary_condition(int start_point_idx, int end_point_idx,
       }
       // 3D domain
       case ELECTRON_3D: {
-        double r = sqrt(pow(points[3 * point_idx] +3, 2)
-                        + pow(points[3 * point_idx + 1]+2, 2)
-                        + pow(points[3 * point_idx + 2]+2, 2));
-
-        // double r2 = sqrt(pow(points[3 * point_idx] +5.55, 2)
-        //                 + pow(points[3 * point_idx + 1]-0.5, 2)
-        //                 + pow(points[3 * point_idx + 2]-0.5, 2));
-        boundary_values.set(point_idx, 0, (-1.0 / (4 * M_PI * r)));// + (-1.0 / (4 * M_PI * r2)));
+        double r = sqrt(pow(points[3 * point_idx], 2)
+                        + pow(points[3 * point_idx + 1] , 2)
+                        + pow(points[3 * point_idx + 2] + 1.5, 2));
+        // double r2 = sqrt(pow(points[3 * point_idx] , 2)
+        //                  + pow(points[3 * point_idx + 1] , 2)
+        //                  + pow(points[3 * point_idx + 2] +1.1, 2));
+        boundary_values.set(point_idx, 0,
+                            (-1.0 / (4 * M_PI * r)));
+        // - (-1.0 / (4 * M_PI * r2)));
+        break;
+      } case ELLIPSOID_HOLES: {
+        double r = sqrt(pow(points[3 * point_idx], 2)
+                        + pow(points[3 * point_idx + 1] , 2)
+                        + pow(points[3 * point_idx + 2] - 2, 2));
+        double r2 = sqrt(pow(points[3 * point_idx] , 2)
+                         + pow(points[3 * point_idx + 1] , 2)
+                         + pow(points[3 * point_idx + 2] - 5, 2));
+        double r3 = sqrt(pow(points[3 * point_idx] , 2)
+                         + pow(points[3 * point_idx + 1] , 2)
+                         + pow(points[3 * point_idx + 2] - 8, 2));
+        boundary_values.set(point_idx, 0,
+                            (-1.0 / (4 * M_PI * r))
+                            + (-1.0 / (4 * M_PI * r2))
+                            + (-1.0 / (4 * M_PI * r3)));
         break;
       }
       case LAPLACE_CHECK_3D: {
 
-        double r = sqrt(pow(points[3 * point_idx] - 0.5, 2)
-                        + pow(points[3 * point_idx + 1] - 0.5, 2)
-                        + pow(points[3 * point_idx + 2] - 0.5, 2));
+        double r = sqrt(pow(points[3 * point_idx] - 0.0, 2)
+                        + pow(points[3 * point_idx + 1] - 0.0, 2)
+                        + pow(points[3 * point_idx + 2] - 0.0, 2));
         if (r < 0.2) {
           boundary_values.set(point_idx, 0, 1.);
         } else {
@@ -211,9 +233,9 @@ void Boundary::apply_boundary_condition(int start_point_idx, int end_point_idx,
         break;
       }
       case STOKES_3D_MIX: {
-        double r = sqrt(pow(points[3 * point_idx] - 0.5, 2)
-                        + pow(points[3 * point_idx + 1] - 0.5, 2)
-                        + pow(points[3 * point_idx + 2] - 0.5, 2));
+        double r = sqrt(pow(points[3 * point_idx] - 0.0, 2)
+                        + pow(points[3 * point_idx + 1] - 0.0, 2)
+                        + pow(points[3 * point_idx + 2] - 0.0, 2));
         if (r > 0.9) {
           boundary_values.set(3 * point_idx, 0, 0);
           boundary_values.set(3 * point_idx + 1, 0, 0.0);
@@ -227,8 +249,17 @@ void Boundary::apply_boundary_condition(int start_point_idx, int end_point_idx,
       }
       case STOKES_3D: {
         boundary_values.set(3 * point_idx, 0, 1);
-        boundary_values.set(3 * point_idx + 1, 0, 0);
-        boundary_values.set(3 * point_idx + 2, 0, 0);
+        boundary_values.set(3 * point_idx + 1, 0, 1);
+        boundary_values.set(3 * point_idx + 2, 0, 1);
+        // if (points[3 * point_idx + 2] < 0 || points[3 * point_idx + 2] > 10) {
+        //   boundary_values.set(3 * point_idx, 0, 0);
+        //   boundary_values.set(3 * point_idx + 1, 0, 0);
+        //   boundary_values.set(3 * point_idx + 2, 0, 0);
+        // } else {
+        //   boundary_values.set(3 * point_idx, 0, 0);
+        //   boundary_values.set(3 * point_idx + 1, 0, 0);
+        //   boundary_values.set(3 * point_idx + 2, 0, 0);
+        // }
         break;
       }
 
