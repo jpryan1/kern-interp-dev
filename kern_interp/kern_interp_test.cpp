@@ -27,8 +27,8 @@ namespace kern_interp {
 
 
 void check_solve_err(const Kernel& kernel, Boundary* boundary) {
-  double id_tol = 1e-4;
-  EXPECT_LE(solve_err(kernel, boundary, id_tol), 10 * id_tol);
+  double id_tol = 1e-6;
+  EXPECT_LE(solve_err(kernel, boundary, id_tol), 50 * id_tol);
 }
 
 
@@ -153,7 +153,7 @@ TEST(IeSolverTest, StokesSphereBackwardError) {
   std::unique_ptr<Boundary> boundary =
     std::unique_ptr<Boundary>(new Sphere());
 
-  boundary->initialize(0,  BoundaryCondition::STOKES_3D_MIX);
+  boundary->initialize(0,  BoundaryCondition::STOKES_SPHERES);
   std::vector<double> domain_points;
   get_domain_points3d(10, &domain_points, boundary.get(), 0, 1);
   Kernel kernel(3, 3, Kernel::Pde::STOKES, boundary.get(), domain_points);
@@ -427,8 +427,6 @@ double laplace_error3d(const ki_Mat& domain,
 
 // // TEST(IeSolverTest, SphereUpdateLosesNoAcc) {
 
-
-
 // //   double id_tol = 1e-6;
 // //   Kernel::Pde pde = Kernel::Pde::STOKES;
 // //   int domain_size = 5;
@@ -470,7 +468,6 @@ double laplace_error3d(const ki_Mat& domain,
 // //   }
 // // }
 
-
 // TEST(IeSolverTest, TreeCopy2DGivesSameAnswer) {
 //   double id_tol = 1e-6;
 //   Kernel::Pde pde = Kernel::Pde::STOKES;
@@ -505,37 +502,37 @@ double laplace_error3d(const ki_Mat& domain,
 
 
 
-// TEST(IeSolverTest, TreeCopy3DGivesSameAnswer) {
-//   double id_tol = 1e-6;
-//   Kernel::Pde pde = Kernel::Pde::STOKES;
-//   int num_boundary_points = pow(2, 12);
-//   int domain_size = 5;
-//   int domain_dimension = 3;
-//   int solution_dimension = 3;
-//   int fact_threads = 8;
+TEST(IeSolverTest, TreeCopy3DGivesSameAnswer) {
+  double id_tol = 1e-4;
+  Kernel::Pde pde = Kernel::Pde::STOKES;
+  int num_boundary_points = pow(2, 12);
+  int domain_size = 5;
+  int domain_dimension = 3;
+  int solution_dimension = 3;
+  int fact_threads = 8;
 
-//   std::unique_ptr<Boundary> boundary =
-//     std::unique_ptr<Boundary>(new Sphere());
-//   boundary->initialize(0,
-//                        BoundaryCondition::STOKES_3D_MIX);
-//   QuadTree quadtree;
-//   quadtree.initialize_tree(boundary.get(), solution_dimension,
-//                            domain_dimension);
-//   std::vector<double> domain_points;
-//   get_domain_points3d(10, &domain_points, boundary.get(), 0, 1);
-//   Kernel kernel(solution_dimension, domain_dimension,
-//                 pde, boundary.get(), domain_points);
-//   kernel.compute_diag_entries_3dstokes(boundary.get());
+  std::unique_ptr<Boundary> boundary =
+    std::unique_ptr<Boundary>(new Sphere());
+  boundary->initialize(0,
+                       BoundaryCondition::STOKES_SPHERES);
+  QuadTree quadtree;
+  quadtree.initialize_tree(boundary.get(), solution_dimension,
+                           domain_dimension);
+  std::vector<double> domain_points;
+  get_domain_points3d(10, &domain_points, boundary.get(), 0, 1);
+  Kernel kernel(solution_dimension, domain_dimension,
+                pde, boundary.get(), domain_points);
+  kernel.compute_diag_entries_3dstokes(boundary.get());
 
-//   ki_Mat solution = boundary_integral_solve(kernel, *(boundary.get()),
-//                     &quadtree, id_tol, fact_threads, domain_points);
-//   QuadTree fresh;
-//   quadtree.copy_into(&fresh, 2);
-//   ki_Mat new_sol = boundary_integral_solve(kernel, *(boundary.get()), &quadtree,
-//                    id_tol,
-//                    fact_threads, domain_points);
-//   ASSERT_LE((new_sol - solution).vec_two_norm(), 1e-15);
-// }
+  ki_Mat solution = boundary_integral_solve(kernel, *(boundary.get()),
+                    &quadtree, id_tol, fact_threads, domain_points);
+  QuadTree fresh;
+  quadtree.copy_into(&fresh, 2);
+  ki_Mat new_sol = boundary_integral_solve(kernel, *(boundary.get()), &quadtree,
+                   id_tol,
+                   fact_threads, domain_points);
+  ASSERT_LE((new_sol - solution).vec_two_norm(), 1e-15);
+}
 
 // TEST(IeSolverTest, LaplaceSphereAnalyticAgreementElectron) {
 //   srand(0);

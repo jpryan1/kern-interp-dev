@@ -19,7 +19,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
   string data_dir = "kern_interp/boundaries/meshes/spheres/";
   std::vector<double> file_points, file_weights;
   string line;
-  ifstream myfile(data_dir + "sphere_2344_faces.txt");
+  ifstream myfile(data_dir + "sphere_4192_faces.txt");
   if (myfile.is_open()) {
     while (getline(myfile, line)) {
       stringstream s_stream(line);
@@ -43,7 +43,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
   std::vector<double> file_hole_points, file_hole_weights;
   string hole_line;
   ifstream
-  myholefile(data_dir + "sphere_1032_faces.txt");
+  myholefile(data_dir + "sphere_570_faces.txt");
   if (myholefile.is_open()) {
     while (getline(myholefile, hole_line)) {
       stringstream s_stream(hole_line);
@@ -67,7 +67,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
     Hole hole;
     hole.center = PointVec(perturbation_parameters[0], perturbation_parameters[0],
                            perturbation_parameters[0]);
-    hole.radius = 0.1;
+    hole.radius = 0.25;
     hole.num_nodes = num_hole_points;
     holes.push_back(hole);
   }
@@ -96,9 +96,9 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
                        + hole.radius * file_hole_points[3 * i + 1]);
       points.push_back(hole.center.a[2]
                        + hole.radius * file_hole_points[3 * i + 2]);
-      normals.push_back(file_hole_points[3 * i]);
-      normals.push_back(file_hole_points[3 * i + 1]);
-      normals.push_back(file_hole_points[3 * i + 2]);
+      normals.push_back(-file_hole_points[3 * i]);
+      normals.push_back(-file_hole_points[3 * i + 1]);
+      normals.push_back(-file_hole_points[3 * i + 2]);
       weights.push_back(hole.radius * hole.radius * file_hole_weights[i]);
     }
   }
@@ -164,7 +164,7 @@ void Sphere::create_cross_section_border() {
 
 bool Sphere::is_in_domain(const PointVec& a) const {
   PointVec center(0.0, 0.0, 0.0);
-  double eps = 1e-2;
+  double eps = 5e-2;
   double dist = (center - a).norm();
   if (dist + eps > r) return false;
   for (Hole hole : holes) {

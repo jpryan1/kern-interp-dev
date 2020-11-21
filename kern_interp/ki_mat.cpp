@@ -26,6 +26,21 @@ double ki_Mat::condition_number() const {
   return 1.0 / rcond;
 }
 
+double ki_Mat::two_norm() const {
+  // TODO(John) this should be done without using LU factorization if possible?
+  ki_Mat X_copy = *this;
+  std::vector<double> sig(std::min(height_, width_));
+  std::vector<double> work_arr(1);
+  std::vector<double> superb(height_ * width_);
+  double lwork = -1;
+  int info = LAPACKE_dgesvd(LAPACK_COL_MAJOR, 'N', 'N', height_, width_,
+                            X_copy.mat, lda_,  &(sig[0]), nullptr, 0, nullptr,
+                            0, &(superb[0]));
+
+  std::cout << "SIG1 " << sig[0] << " info " << info << std::endl;
+  return sig[0];
+}
+
 
 
 ki_Mat::ki_Mat() {

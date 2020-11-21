@@ -39,19 +39,19 @@ if __name__ == "__main__":
     from scipy.spatial import ConvexHull
     # fig, ax = plt.subplots(figsize=(14,14))
     # ax = fig.gca(projection='3d')
-    N=14
+    N=40
     points = []
-    cyl_height = 10
-    height_disc = 30
+    cyl_height = 5
+    height_disc = 100
     for j in range(int(N/2)):
         jflt = float(j)/(N-1)
         sz = bumpfun(jflt, 2*N) #1 to 41 to 1
+        phi = jflt*np.pi
         for i in range(sz):
             iflt = float(i)/(sz)
             
             theta = (iflt)*2.0*np.pi
-            phi = jflt*np.pi
-
+        
             # phi = np.arccos(1-2*jflt)
             points.append(  [np.cos(theta)*np.sin(phi), np.sin(theta)*np.sin(phi), cyl_height+np.cos(phi)])
 
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     for height in range(height_disc):
         #param 0 to 1 in range
         height_param = 1-(height/float(height_disc-1))
-        bulge_param = 1+0.0001*np.sin(height_param*np.pi) 
+        bulge_param = 1 + 0.001*(np.sin((np.pi/4.)+height_param*(np.pi/2.0))-np.sqrt(2)/2.)
         jflt = int(N/2)/float(N-1)
         sz = bumpfun(jflt, 2*N)
         for i in range(sz):
@@ -70,17 +70,17 @@ if __name__ == "__main__":
             # phi = np.arccos(1-2*jflt)
             points.append(  [bulge_param*np.cos(theta)*np.sin(phi), 
                 bulge_param*np.sin(theta)*np.sin(phi), 
-                (cyl_height*height_param)+np.cos(phi)])
+                (cyl_height*height_param)])
 
 
     for j in range(int(N/2)+1, N):
         jflt = float(j)/(N-1)
         sz = bumpfun(jflt, 2*N) #1 to 41 to 1
+        phi = jflt*np.pi
         for i in range(sz):
             iflt = float(i)/(sz)
             
             theta = (iflt)*2.0*np.pi
-            phi = jflt*np.pi
 
             # phi = np.arccos(1-2*jflt)
             points.append(  [np.cos(theta)*np.sin(phi), np.sin(theta)*np.sin(phi), np.cos(phi)])

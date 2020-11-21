@@ -11,7 +11,7 @@
 #include "kern_interp/quadtree/quadtree.h"
 #include "kern_interp/linear_solve.h"
 
-#define BLENDER_TESTING 0
+#define BLENDER_TESTING 1
 
 namespace kern_interp {
 
@@ -209,14 +209,18 @@ void linear_solve(const SkelFactorization& skel_factorization,
     *alpha = ki_Mat(quadtree.U.width(), 1);
     skel_factorization.multiply_connected_solve(quadtree, mu, alpha, f);
   }
-  // for (int i = 0; i < mu->height(); i++) {
-  //   std::cout << mu->get(i, 0)  << std::endl;
-  // }
   if (BLENDER_TESTING) {
     std::ofstream potential_out;
     potential_out.open("output/data/potential_output.txt");
-    for (int i = 0; i < mu->height(); i++) {
-      potential_out << mu->get(i, 0)  << std::endl;
+    if (quadtree.solution_dimension == 3) {
+      for (int i = 0; i < mu->height(); i += 3) {
+        potential_out << sqrt(pow(mu->get(i, 0), 2) + pow(mu->get(i + 1, 0),
+                              2) + pow(mu->get(i + 2, 0), 2))  << std::endl;
+      }
+    } else {
+      for (int i = 0; i < mu->height(); i++) {
+        potential_out << mu->get(i, 0)  << std::endl;
+      }
     }
     potential_out.close();
   }
@@ -242,6 +246,10 @@ void schur_solve(const SkelFactorization & skel_factorization,
     double end = omp_get_wtime();
     std::cout << "solve time " << end - start << std::endl;
     *solution = (K_domain * mu) + (U_forward * alpha);
+    std::cout << "ALPHA" << std::endl;
+    for (int i = 0; i < alpha.height(); i++) {
+      std::cout << alpha.get(i, 0) << std::endl;
+    }
     // std::cout<<"Alpha "<<alpha.get(0,0)<<" "<<alpha.get(1,0)<<" "<<alpha.get(2,0)<<std::endl;
   }
 }
@@ -284,6 +292,7 @@ ki_Mat boundary_integral_solve(const Kernel& kernel, const Boundary& boundary,
     PointVec point(vec);
 
     if (!boundary.is_in_domain(point)) {
+
       int pt_idx = i / kernel.domain_dimension;
       for (int j = 0; j < kernel.solution_dimension; j++) {
         domain_solution.set(kernel.solution_dimension * pt_idx + j, 0, 0.);
@@ -313,11 +322,11 @@ void get_domain_points3d(int domain_size, std::vector<double>* points,
 
 
   for (int i = 0; i < domain_size; i++) {
-    double x = min + ((i + 0.0) / (domain_size - 1)) * (max-min);
+    double x = min + ((i + 0.0) / (domain_size - 1)) * (max - min);
     for (int j = 0; j < domain_size; j++) {
-      double y = min + ((j + 0.0) / (domain_size - 1)) * (max-min);
+      double y = min + ((j + 0.0) / (domain_size - 1)) * (max - min);
       for (int k = 0; k < domain_size; k++) {
-        double z = min + ((k + 0.0) / (domain_size - 1)) * (max-min);
+        double z = min + ((k + 0.0) / (domain_size - 1)) * (max - min);
         if (!boundary->is_in_domain(PointVec(x, y, z))) {
           continue;
         }
@@ -399,13 +408,16 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     ki_Mat kern = kernel(all_dofs, all_dofs);
     dense = ki_Mat(all_dofs.size() + U.width(), all_dofs.size() + U.width());
     ki_Mat ident(U.width(),  U.width());
-    ident.eye(U.width());
+    if (kernel.domain_dimension == 2) {
+      ident.eye(U.width());
+    }
     dense.set_submatrix(0, all_dofs.size(), 0, all_dofs.size(), kern);
     dense.set_submatrix(0, all_dofs.size(), all_dofs.size(), dense.width(), U);
     dense.set_submatrix(all_dofs.size(), dense.height(),
                         0, all_dofs.size(), Psi);
     dense.set_submatrix(all_dofs.size(), dense.height(),
                         all_dofs.size(), dense.width(), -ident);
+    // std::cout<<"cond "<<dense.condition_number()<<std::endl;
     ki_Mat fzero_prime = dense * stacked;
     ki_Mat err1 = (fzero_prime(0, mu.height(), 0, 1)
                    - boundary->boundary_values);

@@ -11,10 +11,15 @@
 #include "kern_interp/quadtree/quadtree.h"
 #include "kern_interp/kernel/kernel.h"
 #include "kern_interp/linear_solve.h"
-#include "kern_interp/boundaries/concentric_spheres.h"
+#include "kern_interp/boundaries/cow_mesh.h"
 
 namespace kern_interp {
 
+
+// opt 5 inits, 6 per grad est
+  // a) 1 proc per update
+  // b) 6 per update, par across inits
+  // c) 30 per update, par only inside updates
 
 void get_mesh_domain_points(std::vector<double>* domain_points, double min,
                             double max) {
@@ -64,29 +69,37 @@ double laplace_error3d(const ki_Mat& domain,
 }
 
 
-void run_ex1_concentric_spheres(bool is_stokes) {
+void run_ex3_cow_w_ellipsoid_holes(bool is_stokes) {
   srand(0);
   int fact_threads = 8;
   double id_tol = 1e-4;
   std::unique_ptr<Boundary> boundary =
-    std::unique_ptr<Boundary>(new Sphere());
+    std::unique_ptr<Boundary>(new CowMesh());
   // Boundary condition is flow past noslip interior hole.
+  // BoundaryCondition bc =  BoundaryCondition::LAPLACE_COW_MESH;
   BoundaryCondition bc =  BoundaryCondition::ELECTRON_3D;
   int solution_dim = 1;
   Kernel::Pde pde = Kernel::Pde::LAPLACE;
 
   if (is_stokes) {
-    bc = BoundaryCondition::STOKES_SPHERES;
+    bc = BoundaryCondition::STOKES_COW_MESH;
     solution_dim = 3;
     pde = Kernel::Pde::STOKES;
   }
 
-  boundary->initialize(0, bc);
+  boundary->initialize(1, bc);
+
+
   QuadTree quadtree;
   quadtree.initialize_tree(boundary.get(), solution_dim, 3);
-  std::vector<double> old_domain_points, domain_points;
-  get_mesh_domain_points(&domain_points, quadtree.min, quadtree.max);
-
+  std::vector<double> domain_points;
+  get_mesh_domain_points(&domain_points, -0.75, 0.75);
+  for (int i = 0; i < domain_points.size(); i += 3) {
+    if (!boundary->is_in_domain(PointVec(domain_points[i + 1],
+                                         domain_points[i + 2]))) {
+      continue;
+    }
+  }
   Kernel kernel(solution_dim, 3, pde, boundary.get(),
                 domain_points);
   if (is_stokes) {
@@ -94,11 +107,9 @@ void run_ex1_concentric_spheres(bool is_stokes) {
   } else {
     kernel.compute_diag_entries_3dlaplace(boundary.get());
   }
-
-
   ki_Mat solution = boundary_integral_solve(kernel, *(boundary.get()),
                     &quadtree, id_tol, fact_threads, domain_points);
-  if (!is_stokes) {
+ if (!is_stokes) {
     std::cout << "err " << laplace_error3d(solution, kernel.domain_points,
                                            boundary.get(),
                                            BoundaryCondition::ELECTRON_3D)
@@ -127,6 +138,6 @@ void run_ex1_concentric_spheres(bool is_stokes) {
 int main(int argc, char** argv) {
   srand(0);
   openblas_set_num_threads(1);
-  kern_interp::run_ex1_concentric_spheres(false);
+  kern_interp::run_ex3_cow_w_ellipsoid_holes(true);
   return 0;
 }

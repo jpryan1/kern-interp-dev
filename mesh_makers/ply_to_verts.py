@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 import matplotlib.cm as cm
 
-FILENAME="pipe_mesh"
+FILENAME="cow_mesh"
 ply_lines = open("ply_files/"+FILENAME+".ply", "r").readlines()
 
 line_idx = 0
@@ -38,9 +38,19 @@ for i in range(3):
     print(min(points[:,i]))
     print(max(points[:,i]))
 printout = ""
+cross_printout = ""
 total_area=0
 min_area = 200
 max_area = 0
+
+
+def crosses_yz_plane(corners):
+    if(not (corners[0][0]>1e-9 and corners[1][0]>1e-9 and corners[2][0]>1e-9)):
+        if(not (corners[0][0]<1e-9 and corners[1][0]<1e-9 and corners[2][0]<1e-9)):
+            return True
+    return False
+
+
 for i in range(num_faces):
     line = ply_lines[line_idx]
     line_idx+=1
@@ -48,11 +58,16 @@ for i in range(num_faces):
     tri = [int(ls[i]) for i in range(1,4)]
 
     corners = points[tri]
+
+    # if(FILENAME == "teapot_mesh"):
+    #     tmp = np.copy(corners[0])
+    #     corners[0] = np.copy(corners[1])
+    #     corners[1] = np.copy(tmp)
     a = np.linalg.norm(corners[0]-corners[1])
     b = np.linalg.norm(corners[0]-corners[2])
     c = np.linalg.norm(corners[1]-corners[2])
-    cs = np.cross(corners[1]-corners[0], corners[2]-corners[0])
-    cs /= np.linalg.norm(cs)
+    normal_vec = np.cross(corners[1]-corners[0], corners[2]-corners[0])
+    normal_vec /= np.linalg.norm(normal_vec)
     # b = np.arccos(np.dot(corners[0], corners[2])/(np.linalg.norm(corners[0])*np.linalg.norm(corners[2])))
     # c = np.arccos(np.dot(corners[1], corners[2])/(np.linalg.norm(corners[1])*np.linalg.norm(corners[2])))
     s = (a+b+c)/2
@@ -64,10 +79,15 @@ for i in range(num_faces):
     min_area = min(min_area,area)
     mid = corners[0]+corners[1]+corners[2]
     mid = mid/3.0
-    # mid = mid/np.linalg.norm(mid)
-    printout += str(mid[0])+","+str(mid[1])+","+str(mid[2])+","+str(cs[0])+","+str(cs[1])+","+str(cs[2])+","+str(area)+"\n"
+    printout += str(mid[0])+","+str(mid[1])+","+str(mid[2])+","+str(normal_vec[0])+","+str(normal_vec[1])+","+str(normal_vec[2])+","+str(area)+"\n"
+    
+    if(crosses_yz_plane(corners)):
+        cross_printout += str(mid[1])+","+str(mid[2])+"\n"
 print("min max ",min_area, max_area)
 print("Total Area: "+str(total_area))
 outp = open("kern-interp_inputs/"+FILENAME+".txt", "w")
 outp.write(printout)
 outp.close()
+coutp = open("kern-interp_inputs/"+FILENAME+"_cross.txt", "w")
+coutp.write(cross_printout)
+coutp.close()

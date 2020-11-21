@@ -99,6 +99,7 @@ struct ki_Mat {
   int id(std::vector<int>* p, ki_Mat* Z, double tol) const;
   std::vector<double> real_eigenvalues();
   double condition_number() const;
+  double two_norm() const;
 
   static ki_Mat rand_vec(int height);
 };

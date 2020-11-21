@@ -43,6 +43,26 @@ cc_binary(
 )
 
 
+cc_binary(
+  name = "ex3_cow_w_ellipsoid_holes",
+  srcs = ["ex3_cow_w_ellipsoid_holes.cpp"],
+  copts= COPTS,
+  deps = [
+      "//kern_interp:ki_mat",
+      "//kern_interp/skel_factorization",
+      "//kern_interp/quadtree",
+      "//kern_interp/boundaries",
+      "//kern_interp:linear_solve",
+      ],
+  linkopts = ["-llapacke",
+          "-lopenblas",
+        "-llapack",
+        "-lblas",
+        "-lgomp"]
+
+)
+
+
 
 cc_binary(
   name = "spiral_channel",

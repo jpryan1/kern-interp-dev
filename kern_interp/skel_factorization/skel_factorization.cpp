@@ -39,13 +39,14 @@ int SkelFactorization::id_compress(const Kernel& kernel,
   assert(node != nullptr && "InterpolativeDecomposition fails on null node.");
   assert(node->dof_lists.active_box.size() > 0 &&
          "Num of DOFs must be positive in InterpolativeDecomposition.");
-
-  ki_Mat pxy = kernel.get_id_mat(tree, node);
+  double rho = 1.0;
+  ki_Mat pxy = kernel.get_id_mat(tree, node, &rho);
+  rho = std::min(rho, 1.0);
   if (pxy.height() == 0) {
     return 0;
   }
   std::vector<int> p;
-  int numskel = pxy.id(&p, &node->T, id_tol);
+  int numskel = pxy.id(&p, &node->T, id_tol * rho);
   if (numskel == 0) {
     return 0;
   }
@@ -64,13 +65,18 @@ int SkelFactorization::id_compress(const Kernel& kernel,
   assert(node != nullptr && "InterpolativeDecomposition fails on null node.");
   assert(node->dof_lists.active_box.size() > 0 &&
          "Num of DOFs must be positive in InterpolativeDecomposition.");
+  double rho = 1.0;
 
-  ki_Mat pxy = kernel.get_id_mat(tree, node);
+  ki_Mat pxy = kernel.get_id_mat(tree, node, &rho);
+  rho = std::min(rho, 1.0);
+
+  ki_Mat cpy = pxy;
   if (pxy.height() == 0) {
     return 0;
   }
   std::vector<int> p;
-  int numskel = pxy.id(&p, &node->T, id_tol);
+  int numskel = pxy.id(&p, &node->T, id_tol * rho);
+
   if (numskel == 0) {
     return 0;
   }
@@ -185,14 +191,13 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
 
       if (current_node->compressed || current_node->dof_lists.active_box.size()
           < MIN_DOFS_TO_COMPRESS) {
-
-        if (current_node->compressed) nodes_left -=
-            current_node->dof_lists.redundant.size();
+        if (current_node->compressed) {
+          nodes_left -= current_node->dof_lists.redundant.size();
+        }
         continue;
       }
       double ids = omp_get_wtime();
       if (id_compress(kernel, tree, current_node) == 0) {
-
         continue;
       }
       double ide = omp_get_wtime();
@@ -214,8 +219,9 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
           || current_half_level_node->dof_lists.active_box.size() <
           MIN_DOFS_TO_COMPRESS / 4) {
 
-        if (current_half_level_node->compressed) nodes_left -=
-            current_half_level_node->dof_lists.redundant.size();
+        if (current_half_level_node->compressed) {
+          nodes_left -=  current_half_level_node->dof_lists.redundant.size();
+        }
         continue;
       }
       if (id_compress(kernel, tree, current_half_level_node) == 0) {
@@ -241,8 +247,11 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
         if (current_third_level_node->compressed
             || current_third_level_node->dof_lists.active_box.size() <
             MIN_DOFS_TO_COMPRESS / 4) {
-          if (current_third_level_node->compressed) nodes_left -=
+
+          if (current_third_level_node->compressed) {
+            nodes_left -=
               current_third_level_node->dof_lists.redundant.size();
+          }
           continue;
         }
         if (id_compress(kernel, tree, current_third_level_node) == 0) {
@@ -250,7 +259,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
         }
         nodes_left -= current_third_level_node->T.width();
         decouple(kernel, current_third_level_node);
-        node_counter++;      
+        node_counter++;
       }
       std::cout << "nodes left after thirdlevel " << nodes_left << " found " <<
                 thirddofs << " to compress" << std::endl;
@@ -496,9 +505,9 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
   }
 
   ki_Mat ident(tree->Psi.height(), tree->Psi.height());
-  if (kernel.domain_dimension == 2) {
+  // if (kernel.domain_dimension == 2) {
     ident.eye(tree->Psi.height());
-  }
+  // }
   ki_Mat S(allskel.size() + tree->Psi.height(),
            allskel.size() + tree->Psi.height());
 
@@ -517,6 +526,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
   double slustart = omp_get_wtime();
   std::cout << "S height " << S.height() << std::endl;
   openblas_set_num_threads(fact_threads);
+  std::cout<<"S COND "<<S.condition_number()<<std::endl;
   S.LU_factorize(&tree->S_LU, &tree->S_piv);
   openblas_set_num_threads(1);
   double sluend = omp_get_wtime();

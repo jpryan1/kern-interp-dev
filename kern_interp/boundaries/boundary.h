@@ -18,6 +18,9 @@ struct Hole {
 };
 
 enum BoundaryCondition {
+  ELECTRON_3D,
+  LAPLACE_PIPE_HOLES,
+  LAPLACE_COW_MESH,
   SINGLE_ELECTRON,
   ALL_ONES,
   ALL_NEG_ONES,
@@ -34,10 +37,9 @@ enum BoundaryCondition {
   EX3B,
   LAPLACE_CHECK_2D,
   LAPLACE_CHECK_3D,
-  ELECTRON_3D,
-  ELLIPSOID_HOLES,
-  STOKES_3D,
-  STOKES_3D_MIX,
+  STOKES_SPHERES,
+  STOKES_PIPE_HOLES,
+  STOKES_COW_MESH,
   STOKES_2D_MIX,
   DEFAULT  // This is special, means use BC inherent to experiment/function.
 };
