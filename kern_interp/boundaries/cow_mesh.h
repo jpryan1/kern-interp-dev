@@ -15,7 +15,7 @@ class CowMesh : public Boundary {
                         double cy) ;
 
   CrossSectionBorder* cross_section_border;
-  void create_cross_section_border(int sz_param);
+  void create_cross_section_border();
   void initialize(int N, BoundaryCondition bc) override;
   bool is_in_domain(const PointVec& a) const override;
   std::unique_ptr<Boundary> clone() const override {

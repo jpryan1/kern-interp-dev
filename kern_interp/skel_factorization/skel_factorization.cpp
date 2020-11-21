@@ -70,7 +70,6 @@ int SkelFactorization::id_compress(const Kernel& kernel,
   ki_Mat pxy = kernel.get_id_mat(tree, node, &rho);
   rho = std::min(rho, 1.0);
 
-  ki_Mat cpy = pxy;
   if (pxy.height() == 0) {
     return 0;
   }
@@ -526,7 +525,6 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
   double slustart = omp_get_wtime();
   std::cout << "S height " << S.height() << std::endl;
   openblas_set_num_threads(fact_threads);
-  std::cout<<"S COND "<<S.condition_number()<<std::endl;
   S.LU_factorize(&tree->S_LU, &tree->S_piv);
   openblas_set_num_threads(1);
   double sluend = omp_get_wtime();

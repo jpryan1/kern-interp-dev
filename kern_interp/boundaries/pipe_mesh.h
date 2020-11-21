@@ -13,7 +13,7 @@ class PipeMesh : public Boundary {
   double r = 1.0;
   void order_outer_nodes(std::vector<double>* points);
   CrossSectionBorder* cross_section_border;
-  void create_cross_section_border(int sz_param);
+  void create_cross_section_border();
   void initialize(int N, BoundaryCondition bc) override;
   bool is_in_domain(const PointVec& a) const override;
   std::unique_ptr<Boundary> clone() const override {

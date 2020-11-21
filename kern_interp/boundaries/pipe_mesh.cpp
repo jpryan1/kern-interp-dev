@@ -149,7 +149,7 @@ void PipeMesh::initialize(int sz_param, BoundaryCondition bc) {
     set_boundary_values_size(bc);
     apply_boundary_condition(0, total_points, bc);
   }
-  create_cross_section_border(sz_param);
+  create_cross_section_border();
   cross_section_border->initialize(sz_param, bc);
 }
 
@@ -214,7 +214,7 @@ void PipeMesh::order_outer_nodes(std::vector<double>* points) {
   }
 }
 
-void PipeMesh::create_cross_section_border(int sz_param) {
+void PipeMesh::create_cross_section_border() {
   // get faces near plane for outer
 
   string line, outer_filename;

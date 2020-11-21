@@ -219,11 +219,7 @@ bool CubicBoundary::is_in_domain(const PointVec& a) const {
           winding_number--;
         }
       }
-    }
-
-    double dist = sqrt(pow(v[0] - hole.center.a[0],
-                           2) + pow(v[1] - hole.center.a[1], 2));
-     
+    }   
 
     if (winding_number % 2 == 1) {
       return false;

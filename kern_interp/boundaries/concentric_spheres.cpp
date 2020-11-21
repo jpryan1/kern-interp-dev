@@ -16,10 +16,43 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
   normals.clear();
   weights.clear();
   curvatures.clear();
+  
+  string big_sphere, little_sphere;
+  switch(sz_param){
+    case 0:{
+      big_sphere = "sphere_2344_faces.txt";
+      little_sphere = "sphere_570_faces.txt";
+      break;
+    }case 1:{
+      big_sphere = "sphere_4192_faces.txt";
+      little_sphere = "sphere_1032_faces.txt";
+      break;
+    }case 2:{
+      big_sphere = "sphere_7970_faces.txt";
+      little_sphere = "sphere_2344_faces.txt";
+      break;
+    }case 3:{
+      big_sphere = "sphere_14870_faces.txt";
+      little_sphere = "sphere_4192_faces.txt";
+      break;
+    }case 4:{
+      big_sphere = "sphere_29214_faces.txt";
+      little_sphere = "sphere_7970_faces.txt";
+      break;
+    }case 5:{
+      big_sphere = "sphere_59744_faces.txt";
+      little_sphere = "sphere_14870_faces.txt";
+      break;
+    }default:{
+      big_sphere = "sphere_2344_faces.txt";
+      little_sphere = "sphere_570_faces.txt";
+      break;
+    }
+  }
   string data_dir = "kern_interp/boundaries/meshes/spheres/";
   std::vector<double> file_points, file_weights;
   string line;
-  ifstream myfile(data_dir + "sphere_4192_faces.txt");
+  ifstream myfile(data_dir +big_sphere);
   if (myfile.is_open()) {
     while (getline(myfile, line)) {
       stringstream s_stream(line);
@@ -43,7 +76,7 @@ void Sphere::initialize(int sz_param, BoundaryCondition bc) {
   std::vector<double> file_hole_points, file_hole_weights;
   string hole_line;
   ifstream
-  myholefile(data_dir + "sphere_570_faces.txt");
+  myholefile(data_dir + little_sphere);
   if (myholefile.is_open()) {
     while (getline(myholefile, hole_line)) {
       stringstream s_stream(hole_line);
