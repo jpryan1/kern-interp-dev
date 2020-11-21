@@ -11,7 +11,7 @@
 #include "kern_interp/quadtree/quadtree.h"
 #include "kern_interp/kernel/kernel.h"
 #include "kern_interp/linear_solve.h"
-#include "kern_interp/boundaries/mesh.h"
+#include "kern_interp/boundaries/pipe_mesh.h"
 #include "kern_interp/boundaries/concentric_spheres.h"
 #include "kern_interp/boundaries/donut.h"
 
@@ -68,7 +68,7 @@ void run_mesh() {
   int num_threads = 8;
   double id_tol = 1e-4;
   std::unique_ptr<Boundary> boundary =
-    std::unique_ptr<Boundary>(new Mesh());
+    std::unique_ptr<Boundary>(new PipeMesh());
   // Boundary condition is flow past noslip interior hole.
   boundary->initialize(pow(2, 7),  BoundaryCondition::ELECTRON_3D);
   QuadTree quadtree;

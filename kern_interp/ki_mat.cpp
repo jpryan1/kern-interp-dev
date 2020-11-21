@@ -26,8 +26,6 @@ double ki_Mat::condition_number() const {
   return 1.0 / rcond;
 }
 
-
-
 ki_Mat::ki_Mat() {
   mat       = NULL;
   lda_      = 0;

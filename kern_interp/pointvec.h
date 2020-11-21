@@ -19,6 +19,7 @@ struct PointVec {
   double norm() const;
   double dot(const PointVec& o) const;
   PointVec operator-(const PointVec &o) const;
+  PointVec operator+(const PointVec &o) const;
   PointVec operator*(const double d) const;
 };
 

@@ -43,6 +43,12 @@ PointVec PointVec::operator-(const PointVec &o) const {
   return PointVec(out);
 }
 
+PointVec PointVec::operator+(const PointVec &o) const {
+  std::vector<double> out;
+  for (int i = 0; i < a.size(); i++) out.push_back(a[i] + o.a[i]);
+  return PointVec(out);
+}
+
 
 PointVec PointVec::operator*(const double d) const {
   std::vector<double> out;

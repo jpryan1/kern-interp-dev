@@ -182,7 +182,7 @@ void CubicBoundary::interpolate(bool is_interior, int nodes_per_spline,
 bool CubicBoundary::is_in_domain(const PointVec& a) const {
   const double v[2] = {a.a[0], a.a[1]};
   int winding_number = 0;
-  double eps = 5e-2;
+  double eps = 3e-2;
   for (int i = 0; i < 2 * num_outer_nodes; i += 2) {
     double dist = sqrt(pow(v[0] - points[i], 2) + pow(v[1] - points[i + 1], 2));
     if (dist < eps) {
@@ -219,7 +219,8 @@ bool CubicBoundary::is_in_domain(const PointVec& a) const {
           winding_number--;
         }
       }
-    }
+    }   
+
     if (winding_number % 2 == 1) {
       return false;
     }

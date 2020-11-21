@@ -100,7 +100,7 @@ void CrossSectionBorder::initialize(int N, BoundaryCondition bc) {
 
   std::ofstream bound_out;
   bound_out.open("output/data/cross_section_bound.txt");
-  for (int i = 0; i < num_outer_nodes*2; i += 2) {
+  for (int i = 0; i < points.size(); i += 2) {
     bound_out << points[i] << "," << points[i + 1]
               << std::endl;
   }

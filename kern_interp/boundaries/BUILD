@@ -6,7 +6,8 @@ cc_library(
 	hdrs = [
 			"circle.h",
 			"concentric_spheres.h",
-			"mesh.h",
+			"pipe_mesh.h",
+			"cow_mesh.h",
 			"annulus.h",
 			"uniformdist.h",
 			"donut.h",
@@ -21,7 +22,8 @@ cc_library(
 	srcs = [
 			"circle.cpp",
 			"concentric_spheres.cpp",
-			"mesh.cpp",
+			"pipe_mesh.cpp",
+			"cow_mesh.cpp",
 			"annulus.cpp",
 			"uniformdist.cpp",
 			"donut.cpp",
