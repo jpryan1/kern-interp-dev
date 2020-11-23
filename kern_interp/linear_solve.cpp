@@ -237,7 +237,7 @@ void schur_solve(const SkelFactorization & skel_factorization,
     double start = omp_get_wtime();
     linear_solve(skel_factorization, quadtree, f, &mu);
     double end = omp_get_wtime();
-    // std::cout << "solve time " << end - start << std::endl;
+    std::cout << "solve time " << end - start << std::endl;
     *solution = K_domain * mu;
   } else {
     ki_Mat alpha;
@@ -270,7 +270,7 @@ ki_Mat boundary_integral_solve(const Kernel& kernel, const Boundary& boundary,
   quadtree->U = U;
   quadtree->Psi = Psi;
   double start = omp_get_wtime();
-  std::cout << "Starting skel " << std::endl;
+  // std::cout << "Starting skel " << std::endl;
   skel_factorization.skeletonize(kernel, quadtree);
   double end = omp_get_wtime();
   std::cout  << "skel time " << end - start << std::endl;
@@ -313,9 +313,6 @@ void get_domain_points(int domain_size, std::vector<double>* points,
 
 void get_domain_points3d(int domain_size, std::vector<double>* points,
                          Boundary* boundary, double min, double max) {
-  double eps = 0.01;
-
-
   for (int i = 0; i < domain_size; i++) {
     double x = min + ((i + 0.0) / (domain_size - 1)) * (max - min);
     for (int j = 0; j < domain_size; j++) {
@@ -331,26 +328,7 @@ void get_domain_points3d(int domain_size, std::vector<double>* points,
       }
     }
   }
-  // for (int i = 0; i < domain_size; i++) {
-  //   double r = eps + min + ((max - min - eps) * (i / (domain_size + 0.)));
-  //   // double x = min + ((i + 0.0) / (domain_size - 1)) * (max - min);
-  //   for (int j = 0; j < domain_size; j++) {
-  //     double theta = 2 * M_PI * (j / (domain_size + 0.));
-  //     // double y = min + ((j + 0.0) / (domain_size - 1)) * (max - min);
-  //     for (int k = 0; k < domain_size; k++) {
-  //       double phi = M_PI * (k / (domain_size + 0.));
-  //       // double z = min + ((k + 0.0) / (domain_size - 1)) * (max - min);
-  //       // double phi=0;
-  //       // double theta=0;
-  //       double x = 0.5 + r * sin(phi) * cos(theta);
-  //       double y = 0.5 + r * sin(phi) * sin(theta);
-  //       double z = 0.5 + r * cos(phi);
-  //       points->push_back(x);
-  //       points->push_back(y);
-  //       points->push_back(z);
-  //     }
-  //   }
-  // }
+
 }
 
 
@@ -376,20 +354,20 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
                                     kernel.domain_dimension);
     quadtree.U = U;
     quadtree.Psi = Psi;
-    std::cout << "skeletonize...";
+    // std::cout << "skeletonize...";
     double start = omp_get_wtime();
     skel_factorization.skeletonize(kernel, &quadtree);
-    std::cout << "done" << std::endl;
+    // std::cout << "done" << std::endl;
     double end = omp_get_wtime();
-    std::cout << "Skel time: " << (end - start) << std::endl;
+    // std::cout << "Skel time: " << (end - start) << std::endl;
     ki_Mat mu, alpha;
-    std::cout << "linear solve...";
+    // std::cout << "linear solve...";
     start = omp_get_wtime();
     linear_solve(skel_factorization, quadtree, boundary->boundary_values, &mu,
                  &alpha);
     end = omp_get_wtime();
-    std::cout << "done" << std::endl;
-    std::cout << "Solve time " << (end - start) << std::endl;
+    // std::cout << "done" << std::endl;
+    // std::cout << "Solve time " << (end - start) << std::endl;
     ki_Mat stacked(mu.height() + alpha.height(), 1);
     stacked.set_submatrix(0, mu.height(), 0, 1, mu);
     stacked.set_submatrix(mu.height(), stacked.height(), 0, 1, alpha);
@@ -438,7 +416,7 @@ double solve_err(const Kernel& kernel, Boundary* boundary, double id_tol) {
     double end = omp_get_wtime();
     // std::cout << "Big kern call took " << (end - start) << std::endl;
     ki_Mat err = (bigK * mu) - boundary->boundary_values;
-    std::cout << "norm " << boundary->boundary_values.vec_two_norm() << std::endl;
+    // std::cout << "norm " << boundary->boundary_values.vec_two_norm() << std::endl;
     return err.vec_two_norm() / boundary->boundary_values.vec_two_norm();
   }
 }

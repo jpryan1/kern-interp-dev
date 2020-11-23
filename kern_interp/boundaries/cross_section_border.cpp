@@ -92,19 +92,13 @@ void CrossSectionBorder::initialize(int N, BoundaryCondition bc) {
     interpolate(true, INNER_NODES_PER_SPLINE, inner_x0_cubics, inner_x1_cubics);
     Hole hole;
     hole.center = get_hole_center(x0_inner_knots, x1_inner_knots);
+    // std::cout<<"Hole center "<<hole.center.a[0]<<" "<<hole.center.a[1]<<std::endl;
     hole.radius = get_hole_radius(x0_inner_knots, x1_inner_knots,
                                   hole.center);
     hole.num_nodes = INNER_NODES_PER_SPLINE * x0_inner_knots.size();
     holes.push_back(hole);
   }
 
-  std::ofstream bound_out;
-  bound_out.open("output/data/cross_section_bound.txt");
-  for (int i = 0; i < points.size(); i += 2) {
-    bound_out << points[i] << "," << points[i + 1]
-              << std::endl;
-  }
-  bound_out.close();
 }
 
 

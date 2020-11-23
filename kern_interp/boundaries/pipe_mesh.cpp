@@ -53,7 +53,7 @@ void PipeMesh::initialize(int sz_param, BoundaryCondition bc) {
   std::vector<double> file_hole_points, file_hole_normals, file_hole_weights;
   string hole_line;
   ifstream
-  myholefile("kern_interp/boundaries/meshes/ellipsoid.txt");
+  myholefile("kern_interp/boundaries/meshes/spheres/sphere_1032_faces.txt");
   if (myholefile.is_open()) {
     while (getline(myholefile, hole_line)) {
       stringstream s_stream(hole_line);
@@ -62,11 +62,11 @@ void PipeMesh::initialize(int sz_param, BoundaryCondition bc) {
         getline(s_stream, pt, ',');
         file_hole_points.push_back(std::stod(pt));
       }
-      for (int d = 0; d < 3; d++) {
-        string pt;
-        getline(s_stream, pt, ',');
-        file_hole_normals.push_back(std::stod(pt));
-      }
+      // for (int d = 0; d < 3; d++) {
+      //   string pt;
+      //   getline(s_stream, pt, ',');
+      //   file_hole_normals.push_back(std::stod(pt));
+      // }
       string wt;
       getline(s_stream, wt, ',');
       file_hole_weights.push_back(std::stod(wt));
@@ -77,22 +77,25 @@ void PipeMesh::initialize(int sz_param, BoundaryCondition bc) {
 
   if (perturbation_parameters.size() == 0) {
     perturbation_parameters.push_back(0.0);
+    perturbation_parameters.push_back(0.0);
+    perturbation_parameters.push_back(0.0);
   }
 
   if (holes.size() == 0) {
-
     Hole hole;
-    hole.center = PointVec(0.0, 0.0, 2.5);
-    hole.radius = 0.5;
+    hole.center = PointVec(0.0, perturbation_parameters[0], 2.5);
+    hole.radius = 0.3;
     hole.num_nodes = num_hole_points;
     holes.push_back(hole);
-    hole.center = PointVec(0.0, 0.0, 1.0);
+    hole.center = PointVec(0.0, perturbation_parameters[1], 1.0);
     holes.push_back(hole);
-    hole.center = PointVec(0.0, 0.0, 4.0);
+    hole.center = PointVec(0.0, perturbation_parameters[2], 4.0);
     holes.push_back(hole);
+  } else {
+    holes[0].center = PointVec(0.0, perturbation_parameters[0], 2.5);
+    holes[1].center = PointVec(0.0, perturbation_parameters[1], 1.0);
+    holes[2].center = PointVec(0.0, perturbation_parameters[2], 4.0);
   }
-
-
 
   int num_holes = holes.size();
 
@@ -118,26 +121,27 @@ void PipeMesh::initialize(int sz_param, BoundaryCondition bc) {
     } else {
       ang = 0;
     }
+    ang = M_PI/2.0;
     for (int i = 0; i < num_hole_points; i++) {
       double x = file_hole_points[3 * i];
       double y = cos(ang) * file_hole_points[3 * i + 1] + sin(
                    ang) * file_hole_points[3 * i + 2];
       double z = -sin(ang) * file_hole_points[3 * i + 1] + cos(
                    ang) * file_hole_points[3 * i + 2];
-      double nx = file_hole_normals[3 * i];
-      double ny = cos(ang) * file_hole_normals[3 * i + 1] + sin(
-                    ang) * file_hole_normals[3 * i + 2];
-      double nz = -sin(ang) * file_hole_normals[3 * i + 1] + cos(
-                    ang) * file_hole_normals[3 * i + 2];
+      // double nx = file_hole_normals[3 * i];
+      // double ny = cos(ang) * file_hole_normals[3 * i + 1] + sin(
+      //               ang) * file_hole_normals[3 * i + 2];
+      // double nz = -sin(ang) * file_hole_normals[3 * i + 1] + cos(
+      //               ang) * file_hole_normals[3 * i + 2];
       points.push_back(hole.center.a[0]
                        + hole.radius * x);
       points.push_back(hole.center.a[1]
                        +  hole.radius * y);
       points.push_back(hole.center.a[2]
                        +  hole.radius * z);
-      normals.push_back(-nx);
-      normals.push_back(-ny);
-      normals.push_back(-nz);
+      normals.push_back(-x);
+      normals.push_back(-y);
+      normals.push_back(-z);
       weights.push_back(hole.radius * hole.radius * file_hole_weights[i]);
     }
   }
@@ -257,45 +261,54 @@ void PipeMesh::create_cross_section_border() {
   double point_idx = num_outer_nodes;
   for (int i = 0; i < holes.size(); i++) {
     Hole hole = holes[i];
-    std::vector<PointVec> hole_knots;
+  std::vector<double> hole_knots;
+  for (int i = 0; i < 100; i++) {
+    double ang = (i / 100.0) * 2 * (M_PI);
+    hole_knots.push_back(hole.center.a[1] + hole.radius * cos(ang));
+    hole_knots.push_back(hole.center.a[2] + hole.radius * sin(ang));
+  }
+  cross_section_border->sorted_2d_hole_knots.push_back(hole_knots);
 
-    ifstream myholefile(hole_filename);
-    if (myholefile.is_open()) {
-      while (getline(myholefile, line)) {
-        stringstream s_stream(line);
-        std::vector<double> pt_vec;
-        for (int d = 0; d < 2; d++) {
-          string pt;
-          getline(s_stream, pt, ',');
-          pt_vec.push_back(std::stod(pt));
-        }
+    // std::vector<PointVec> hole_knots;
 
-        double ang;
-        if (i == 1) {
-          ang = M_PI / 3.0;
-        } else if (i == 2) {
-          ang = -M_PI / 3.0;
-        } else {
-          ang = 0;
-        }
-        PointVec rotated(cos(ang)*pt_vec[0] + sin(ang)*pt_vec[1],
-                         -sin(ang)*pt_vec[0] + cos(ang)*pt_vec[1]);
-        hole_knots.push_back((rotated * hole.radius));
-      }
-      myholefile.close();
-    } else {
-      std::cout << "N0 File" << std::endl;
-      exit(0);
-    }
-    std::sort(hole_knots.begin(), hole_knots.end(), comp_ang);
-    std::vector<double> sorted_hole_knots;
-    for (int j = 0; j < hole_knots.size(); j++) {
-      PointVec pv = hole_knots[j];
-      sorted_hole_knots.push_back(hole.center.a[1] + pv.a[0]);
-      sorted_hole_knots.push_back(hole.center.a[2] + pv.a[1]);
-    }
-    cross_section_border->sorted_2d_hole_knots.push_back(sorted_hole_knots);
-    point_idx += hole.num_nodes;
+    // ifstream myholefile(hole_filename);
+    // if (myholefile.is_open()) {
+    //   while (getline(myholefile, line)) {
+    //     stringstream s_stream(line);
+    //     std::vector<double> pt_vec;
+    //     for (int d = 0; d < 2; d++) {
+    //       string pt;
+    //       getline(s_stream, pt, ',');
+    //       pt_vec.push_back(std::stod(pt));
+    //     }
+
+    //     double ang;
+    //     if (i == 1) {
+    //       ang = M_PI / 3.0;
+    //     } else if (i == 2) {
+    //       ang = -M_PI / 3.0;
+    //     } else {
+    //       ang = 0;
+    //     }
+    //     ang = M_PI/2.0;
+    //     PointVec rotated(cos(ang)*pt_vec[0] + sin(ang)*pt_vec[1],
+    //                      -sin(ang)*pt_vec[0] + cos(ang)*pt_vec[1]);
+    //     hole_knots.push_back((rotated * hole.radius));
+    //   }
+    //   myholefile.close();
+    // } else {
+    //   std::cout << "N0 File" << std::endl;
+    //   exit(0);
+    // }
+    // std::sort(hole_knots.begin(), hole_knots.end(), comp_ang);
+    // std::vector<double> sorted_hole_knots;
+    // for (int j = 0; j < hole_knots.size(); j++) {
+    //   PointVec pv = hole_knots[j];
+    //   sorted_hole_knots.push_back(hole.center.a[1] + pv.a[0]);
+    //   sorted_hole_knots.push_back(hole.center.a[2] + pv.a[1]);
+    // }
+    // cross_section_border->sorted_2d_hole_knots.push_back(sorted_hole_knots);
+    // point_idx += hole.num_nodes;
   }
 
   // populate and initialize cross section border

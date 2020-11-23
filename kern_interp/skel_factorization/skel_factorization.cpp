@@ -178,19 +178,30 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
 
   int nodes_left = tree->solution_dimension * (kernel.boundary_points_.size() /
                    tree->domain_dimension);
-  for (int level = lvls - 1; level >= 1  ; level--) {
+  for (int level = lvls - 1; level >= 1 ; level--) {
+
     end = omp_get_wtime();
-    std::cout << "Nodes left " << nodes_left << std::endl;
+    // std::cout << "Nodes left " << nodes_left << std::endl;
     start = end;
     tree->remove_inactive_dofs_at_level(level);
     QuadTreeLevel* current_level = tree->levels[level];
+    // std::cout << "Level has " << current_level->nodes.size() << " many treenodes" <<
+    //           std::endl;
+    int compressed_nodes = 0;
+    int already_compressed_nodes = 0;
+
+    double level_s = omp_get_wtime();
     #pragma omp parallel for num_threads(fact_threads)
     for (int n = 0; n < current_level->nodes.size(); n++) {
+
       QuadTreeNode* current_node = current_level->nodes[n];
 
       if (current_node->compressed || current_node->dof_lists.active_box.size()
           < MIN_DOFS_TO_COMPRESS) {
-        if (current_node->compressed) {
+        if (current_node->compressed) { 
+          // std::cout << "skippewd compression of node at r=" << sqrt(pow(current_node->center[0],
+          //       2) + pow(current_node->center[1], 2) + pow(current_node->center[2], 2)) << "sidelen "<<current_node->side_length<<std::endl;
+          already_compressed_nodes++;
           nodes_left -= current_node->dof_lists.redundant.size();
         }
         continue;
@@ -203,8 +214,15 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
       nodes_left -= current_node->T.width();
       decouple(kernel, current_node);
       node_counter++;
+      compressed_nodes++;
+      // std::cout << "compressed node at r=" << sqrt(pow(current_node->center[0],
+      //           2) + pow(current_node->center[1], 2) + pow(current_node->center[2], 2)) << "sidelen "<<current_node->side_length<<std::endl;
     }
-    std::cout << "nodes left after full level " << nodes_left << std::endl;
+    double level_e = omp_get_wtime();
+    // std::cout<<"LEVEL "<<level<<" took "<<level_e-level_s<<std::endl;
+    // std::cout << "nodes left after full level " << nodes_left << std::endl;
+    // std::cout << "Treenodes compressed: " << compressed_nodes << std::endl;
+    // std::cout << "Got to skip " << already_compressed_nodes << std::endl;
     if (!using_hif) continue;
     tree->populate_half_level_dofs(level);
     MidLevel* current_half_level = tree->levels[level]->half_level;
@@ -232,8 +250,8 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
 
       node_counter++;
     }
-    std::cout << "nodes left after halflevel " << nodes_left << " found " <<
-              halfdofs << " to compress" << std::endl;
+    // std::cout << "nodes left after halflevel " << nodes_left << " found " <<
+    //           halfdofs << " to compress" << std::endl;
 
     if (kernel.domain_dimension == 3) {
       tree->populate_third_level_dofs(level);
@@ -260,8 +278,8 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
         decouple(kernel, current_third_level_node);
         node_counter++;
       }
-      std::cout << "nodes left after thirdlevel " << nodes_left << " found " <<
-                thirddofs << " to compress" << std::endl;
+      // std::cout << "nodes left after thirdlevel " << nodes_left << " found " <<
+      //           thirddofs << " to compress" << std::endl;
     }
   }
   end = omp_get_wtime();
@@ -279,7 +297,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
     end = omp_get_wtime();
     // std::cout << "allskel get time " << end - start << std::endl;
   }
-  std::cout << "Allskelsize " << allskel.size() << std::endl;
+  // std::cout << "Allskelsize " << allskel.size() << std::endl;
   if (tree->U.width() == 0) {
     double lufs = omp_get_wtime();
     openblas_set_num_threads(fact_threads);
@@ -287,7 +305,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                                    &tree->allskel_mat_piv);
     openblas_set_num_threads(1);
     double lufe = omp_get_wtime();
-    std::cout << "allskel lu done" << std::endl;
+    // std::cout << "allskel lu done" << std::endl;
     return;
   }
   std::vector<QuadTreeNode*> all_nodes;
@@ -325,7 +343,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
     }
   }
   if (allredundant.size() == 0) {
-    std::cout << "No compression possible" << std::endl;
+    // std::cout << "No compression possible" << std::endl;
     exit(0);
   }
 
@@ -505,7 +523,7 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
 
   ki_Mat ident(tree->Psi.height(), tree->Psi.height());
   // if (kernel.domain_dimension == 2) {
-    ident.eye(tree->Psi.height());
+  ident.eye(tree->Psi.height());
   // }
   ki_Mat S(allskel.size() + tree->Psi.height(),
            allskel.size() + tree->Psi.height());
@@ -523,12 +541,12 @@ void SkelFactorization::skeletonize(const Kernel& kernel, QuadTree* tree) {
                   - ident - (modified_Psi(0, modified_Psi.height(),
                                           allredundant) * Dinv_C_nonzero));
   double slustart = omp_get_wtime();
-  std::cout << "S height " << S.height() << std::endl;
+  // std::cout << "S height " << S.height() << std::endl;
   openblas_set_num_threads(fact_threads);
   S.LU_factorize(&tree->S_LU, &tree->S_piv);
   openblas_set_num_threads(1);
   double sluend = omp_get_wtime();
-  std::cout << "S LU factorization: " << (sluend - slustart) << std::endl;
+  // std::cout << "S LU factorization: " << (sluend - slustart) << std::endl;
 
 }
 

@@ -67,7 +67,7 @@ double laplace_error3d(const ki_Mat& domain,
 void run_ex1_concentric_spheres(bool is_stokes) {
   srand(0);
   int fact_threads = 8;
-  double id_tol = 1e-4;
+  double id_tol = 1e-3;
   std::unique_ptr<Boundary> boundary =
     std::unique_ptr<Boundary>(new Sphere());
   // Boundary condition is flow past noslip interior hole.
@@ -98,11 +98,12 @@ void run_ex1_concentric_spheres(bool is_stokes) {
 
   ki_Mat solution = boundary_integral_solve(kernel, *(boundary.get()),
                     &quadtree, id_tol, fact_threads, domain_points);
+
+
   if (!is_stokes) {
     std::cout << "err " << laplace_error3d(solution, kernel.domain_points,
                                            boundary.get(),
-                                           BoundaryCondition::ELECTRON_3D)
-              << std::endl;
+                                           BoundaryCondition::ELECTRON_3D) << std::endl;
   }
   std::ofstream sol_out;
   sol_out.open("output/data/cross_section_sol.txt");
@@ -119,6 +120,20 @@ void run_ex1_concentric_spheres(bool is_stokes) {
     }
   }
   sol_out.close();
+  // boundary->perturbation_parameters[0] = 0.05;
+  // boundary->initialize(0, BoundaryCondition::STOKES_SPHERES);
+  // kernel.update_data(boundary.get());
+  // kernel.compute_diag_entries_3dstokes(boundary.get());
+  // quadtree.perturb(*boundary.get());
+  // solution = boundary_integral_solve(kernel, *(boundary.get()),
+  //                                    &quadtree, id_tol, fact_threads, domain_points);
+
+  // QuadTree fresh;
+  // fresh.initialize_tree(boundary.get(), 3,  3);
+  // ki_Mat new_sol = boundary_integral_solve(kernel, *(boundary.get()), &fresh,
+  //                  id_tol, fact_threads, domain_points);
+  // std::cout << "Err " << (new_sol - solution).vec_two_norm() /
+  //           new_sol.vec_two_norm() << std::endl;
 }
 
 }  // namespace kern_interp
@@ -127,6 +142,6 @@ void run_ex1_concentric_spheres(bool is_stokes) {
 int main(int argc, char** argv) {
   srand(0);
   openblas_set_num_threads(1);
-  kern_interp::run_ex1_concentric_spheres(false);
+  kern_interp::run_ex1_concentric_spheres(true);
   return 0;
 }

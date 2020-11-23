@@ -280,8 +280,8 @@ void QuadTree::initialize_tree(Boundary* boundary,
     recursive_add(this->root, pt, i / domain_dimension);
   }
   compute_neighbor_lists();
-  compute_half_levels();
-  if (domain_dimension == 3) compute_third_levels();
+  // compute_half_levels();
+  // if (domain_dimension == 3) compute_third_levels();
   sort_leaves();
 
 }
@@ -440,10 +440,7 @@ void QuadTree::delete_recompressor(MidLevelNode* recomp) {
 }
 
 
-void QuadTree::mark_neighbors_and_parents(QuadTreeNode * node) {
-  if (node == nullptr) return;
-  if (node->p_marked) return;
-  node->p_marked = true;
+void wipe_node_fields(QuadTreeNode* node) {
   node->compressed = false;
   node->X_rr_is_LU_factored = false;
   node->dof_lists.active_box.clear();
@@ -454,43 +451,47 @@ void QuadTree::mark_neighbors_and_parents(QuadTreeNode * node) {
   node->T = ki_Mat(0, 0);
   node->U = ki_Mat(0, 0);
   node->L = ki_Mat(0, 0);
-  for (MidLevelNode* recomp : node->recompressor_nodes) {
-    delete_recompressor(recomp);
+  node->schur_update = ki_Mat(0, 0);
+  for (MidLevelNode* half_node : node->recompressor_nodes) {
+    half_node->compressed = false;
+    half_node->X_rr_is_LU_factored = false;
+    half_node->dof_lists.active_box.clear();
+    half_node->dof_lists.skel.clear();
+    half_node->dof_lists.skelnear.clear();
+    half_node->dof_lists.redundant.clear();
+    half_node->dof_lists.permutation.clear();
+    half_node->T = ki_Mat(0, 0);
+    half_node->U = ki_Mat(0, 0);
+    half_node->L = ki_Mat(0, 0);
+    node->schur_update = ki_Mat(0, 0);
   }
-  for (MidLevelNode* recomp : node->recompressor_third_nodes) {
-    delete_recompressor(recomp);
+  for (MidLevelNode* third_node : node->recompressor_third_nodes) {
+    third_node->compressed = false;
+    third_node->X_rr_is_LU_factored = false;
+    third_node->dof_lists.active_box.clear();
+    third_node->dof_lists.skel.clear();
+    third_node->dof_lists.skelnear.clear();
+    third_node->dof_lists.redundant.clear();
+    third_node->dof_lists.permutation.clear();
+    third_node->T = ki_Mat(0, 0);
+    third_node->U = ki_Mat(0, 0);
+    third_node->L = ki_Mat(0, 0);
+    node->schur_update = ki_Mat(0, 0);
   }
-  std::set<QuadTreeNode*> nbrnbrs;
+}
 
+void QuadTree::mark_neighbors_and_parents(QuadTreeNode * node) {
+  if (node == nullptr) return;
+  if (node->previously_marked) return;
+  node->previously_marked = true;
+  wipe_node_fields(node);
   for (QuadTreeNode* neighbor : node->neighbors) {
-    nbrnbrs.insert(neighbor);
-
-    for (QuadTreeNode* nbrnbr : neighbor->neighbors) {
-      if (nbrnbr != node) {
-        nbrnbrs.insert(nbrnbr);
-      }
-    }
-  }
-  for (QuadTreeNode* nbrnbr : nbrnbrs) {
-    // These aren't p_marked as they don't contain perturbations within them,
-    // but need updating due to their neighbors.
-    nbrnbr->compressed = false;
-    nbrnbr->X_rr_is_LU_factored = false;
-    nbrnbr->dof_lists.active_box.clear();
-    nbrnbr->dof_lists.skel.clear();
-    nbrnbr->dof_lists.skelnear.clear();
-    nbrnbr->dof_lists.redundant.clear();
-    nbrnbr->dof_lists.permutation.clear();
-    nbrnbr->T = ki_Mat(0, 0);
-    nbrnbr->U = ki_Mat(0, 0);
-    nbrnbr->L = ki_Mat(0, 0);
-    for (MidLevelNode* recomp : nbrnbr->recompressor_nodes) {
-      delete_recompressor(recomp);
-    }
-    for (MidLevelNode* recomp : nbrnbr->recompressor_third_nodes) {
-      delete_recompressor(recomp);
-    }
-    mark_neighbors_and_parents(nbrnbr->parent);
+    if (neighbor->level < node->level) continue;
+    if (neighbor->compressed) wipe_node_fields(neighbor);
+    // for (QuadTreeNode* nbrnbr : neighbor->neighbors) {
+    //   if (nbrnbr->level < node->level) continue;
+    //   if (nbrnbr->compressed) wipe_node_fields(nbrnbr);
+    // }
   }
   mark_neighbors_and_parents(node->parent);
 }
@@ -521,12 +522,17 @@ void QuadTree::consolidate_node(QuadTreeNode * node) {
       remove_from_lvl.push_back(current);
     }
   }
+
   for (QuadTreeNode* erase : remove_from_lvl) {
     QuadTreeLevel* erase_level = levels[erase->level];
     for (int i = 0; i < erase_level->nodes.size(); i++) {
-      // recompressors should be deleted too
-      //TODO
       if (erase_level->nodes[i] == erase) {
+        for (MidLevelNode* recompressor_node : erase->recompressor_nodes) {
+          recompressor_node->is_orphan = true;
+        }
+        for (MidLevelNode* recompressor_third_node : erase->recompressor_third_nodes) {
+          recompressor_third_node->is_orphan = true;
+        }
         QuadTreeNode* del = erase_level->nodes[i];
         erase_level->nodes.erase(erase_level->nodes.begin() + i);
         delete del;
@@ -683,14 +689,102 @@ void QuadTree::perturb(const Boundary & perturbed_boundary) {
       node->dof_lists.skelnear = sn;
       node->dof_lists.redundant = r;
     }
+
+    for (MidLevelNode* node : level->half_level->nodes) {
+      std::vector<int> ab, s, r, sn, n;
+      for (int idx : node->dof_lists.active_box) {
+        int point_index = idx / solution_dimension;
+        std::unordered_map<int, int>::const_iterator element =
+          old_index_to_new_index.find(point_index);
+        if (element != old_index_to_new_index.end()) {
+          ab.push_back(solution_dimension * element->second
+                       + idx % solution_dimension);
+        }
+      }
+      for (int idx : node->dof_lists.skel) {
+        int point_index = idx / solution_dimension;
+        std::unordered_map<int, int>::const_iterator element =
+          old_index_to_new_index.find(point_index);
+        if (element != old_index_to_new_index.end()) {
+          s.push_back(solution_dimension * element->second
+                      + idx % solution_dimension);
+        }
+      }
+      for (int idx : node->dof_lists.redundant) {
+        int point_index = idx / solution_dimension;
+        std::unordered_map<int, int>::const_iterator element =
+          old_index_to_new_index.find(point_index);
+        if (element != old_index_to_new_index.end()) {
+          r.push_back(solution_dimension * element->second
+                      + idx % solution_dimension);
+        }
+      }
+      for (int idx : node->dof_lists.skelnear) {
+        int point_index = idx / solution_dimension;
+        std::unordered_map<int, int>::const_iterator element =
+          old_index_to_new_index.find(point_index);
+        if (element != old_index_to_new_index.end()) {
+          sn.push_back(solution_dimension * element->second
+                       + idx % solution_dimension);
+        }
+      }
+      node->dof_lists.active_box = ab;
+      node->dof_lists.skel = s;
+      node->dof_lists.skelnear = sn;
+      node->dof_lists.redundant = r;
+    }
+    if (domain_dimension == 3) {
+      for (MidLevelNode* node : level->third_level->nodes) {
+        std::vector<int>  ab, s, r, sn, n;
+        for (int idx : node->dof_lists.active_box) {
+          int point_index = idx / solution_dimension;
+          std::unordered_map<int, int>::const_iterator element =
+            old_index_to_new_index.find(point_index);
+          if (element != old_index_to_new_index.end()) {
+            ab.push_back(solution_dimension * element->second
+                         + idx % solution_dimension);
+          }
+        }
+        for (int idx : node->dof_lists.skel) {
+          int point_index = idx / solution_dimension;
+          std::unordered_map<int, int>::const_iterator element =
+            old_index_to_new_index.find(point_index);
+          if (element != old_index_to_new_index.end()) {
+            s.push_back(solution_dimension * element->second
+                        + idx % solution_dimension);
+          }
+        }
+        for (int idx : node->dof_lists.redundant) {
+          int point_index = idx / solution_dimension;
+          std::unordered_map<int, int>::const_iterator element =
+            old_index_to_new_index.find(point_index);
+          if (element != old_index_to_new_index.end()) {
+            r.push_back(solution_dimension * element->second
+                        + idx % solution_dimension);
+          }
+        }
+        for (int idx : node->dof_lists.skelnear) {
+          int point_index = idx / solution_dimension;
+          std::unordered_map<int, int>::const_iterator element =
+            old_index_to_new_index.find(point_index);
+          if (element != old_index_to_new_index.end()) {
+            sn.push_back(solution_dimension * element->second
+                         + idx % solution_dimension);
+          }
+        }
+        node->dof_lists.active_box = ab;
+        node->dof_lists.skel = s;
+        node->dof_lists.skelnear = sn;
+        node->dof_lists.redundant = r;
+      }
+
+    }
   }
 
   // go through all additions, find their leaves, make addition and call mark
   // function
   std::vector<QuadTreeNode*> maybe_bursting;
   for (int i = 0; i < additions.size(); i++) {
-    // double newx = new_points[2 * additions[i]];
-    // double newy = new_points[2 * additions[i] + 1];
     std::vector<double> newpt;
     for (int j = 0; j < domain_dimension; j++) {
       newpt.push_back(new_points[domain_dimension * additions[i] + j]);
@@ -710,6 +804,7 @@ void QuadTree::perturb(const Boundary & perturbed_boundary) {
           * additions[i] + j);
     }
     maybe_bursting.push_back(current);
+
     mark_neighbors_and_parents(current);
   }
 
@@ -728,21 +823,20 @@ void QuadTree::perturb(const Boundary & perturbed_boundary) {
       node->parent->dofs_below += node->dofs_below;
     }
   }
-
   // go through all deletions, find their leaves, make deletion and call mark
   // function
   std::unordered_map<QuadTreeNode*, bool> sparse;
   for (int i = 0; i < deletions.size(); i++) {
-    QuadTreeNode* current = root;
     // oldpt is the current point that's being deleted
     std::vector<double> oldpt;
     for (int j = 0; j < domain_dimension; j++) {
       oldpt.push_back(old_points[domain_dimension * deletions[i] + j]);
     }
-
     bool path_marked = false;
+
     // Starting from the root, mark all boxes containing deleted point, identify
     // first that's sparse and can be consolidated.
+    QuadTreeNode* current = root;
     while (!current->is_leaf) {
       if (current->dofs_below < MAX_LEAF_DOFS && !path_marked) {
         path_marked = true;
@@ -757,11 +851,12 @@ void QuadTree::perturb(const Boundary & perturbed_boundary) {
       }
       current = current->children[child_idx];
     }
+
     // Now current is the leaf containing the deleted point
     mark_neighbors_and_parents(current);
   }
-
   this->boundary_points = perturbed_boundary.points;
+
   // If any nodes are bursting now, subdivide them.
   for (QuadTreeNode* node : maybe_bursting) {
     if (node->is_leaf
@@ -779,16 +874,71 @@ void QuadTree::perturb(const Boundary & perturbed_boundary) {
   }
   for (QuadTreeLevel* level : levels) {
     for (QuadTreeNode* node : level->nodes) {
-      node->p_marked = false;
+      node->previously_marked = false;
       node->neighbors.clear();
     }
   }
+
+  handle_orphans();
   compute_neighbor_lists();
-  compute_half_levels();
-  if (domain_dimension == 3) {
-    compute_third_levels();
+
+  // compute_half_levels();
+  // if (domain_dimension == 3) {
+  //   compute_third_levels();
+  // }
+  // sort_leaves();
+}
+
+void QuadTree::handle_orphans() {
+  for (QuadTreeLevel* level : levels) {
+    MidLevel* half_level = level->half_level;
+    std::vector<MidLevelNode*> new_nodes;
+    for (int i = 0; i < half_level->nodes.size(); i++) {
+      MidLevelNode* half_node = half_level->nodes[i];
+      if (half_node->is_orphan) {
+        // Delete from quadtreenodes lists
+        for (QuadTreeNode* container : half_node->containing_nodes) {
+          for (int j = 0; j < container->recompressor_nodes.size(); j++) {
+            MidLevelNode* other_recomp = container->recompressor_nodes[j];
+            if (other_recomp == half_node) {
+              container->recompressor_nodes.erase(container->recompressor_nodes.begin() + j);
+              break;
+            }
+          }
+        }
+        // Delete
+        delete half_node;
+      } else {
+        new_nodes.push_back(half_node);
+      }
+    }
+    half_level->nodes = new_nodes;
+
+    if (domain_dimension == 3) {
+      MidLevel* third_level = level->third_level;
+      std::vector<MidLevelNode*> new_nodes;
+      for (int i = 0; i < third_level->nodes.size(); i++) {
+        MidLevelNode* third_node = third_level->nodes[i];
+        if (third_node->is_orphan) {
+          // Delete from quadtreenodes lists
+          for (QuadTreeNode* container : third_node->containing_nodes) {
+            for (int j = 0; j < container->recompressor_third_nodes.size(); j++) {
+              MidLevelNode* other_recomp = container->recompressor_third_nodes[j];
+              if (other_recomp == third_node) {
+                container->recompressor_third_nodes.erase(container->recompressor_third_nodes.begin() + j);
+                break;
+              }
+            }
+          }
+          // Delete
+          delete third_node;
+        } else {
+          new_nodes.push_back(third_node);
+        }
+      }
+      third_level->nodes = new_nodes;
+    }
   }
-  sort_leaves();
 }
 
 
@@ -808,7 +958,6 @@ void copy_info(QuadTreeNode * old_node, QuadTreeNode * new_node) {
   new_node->X_rr_lu = old_node->X_rr_lu;
   new_node->X_rr_piv = old_node->X_rr_piv;
   new_node->center = old_node->center;
-
 }
 
 
@@ -1050,6 +1199,7 @@ void QuadTree::remove_inactive_dofs_at_box(QuadTreeNode * node) {
     }
   } else {
     node->dof_lists.active_box = node->dof_lists.original_box;
+
   }
 }
 

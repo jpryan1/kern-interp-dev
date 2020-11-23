@@ -8,7 +8,7 @@
 #include "kern_interp/ki_mat.h"
 #include "kern_interp/boundaries/boundary.h"
 
-#define MAX_LEAF_DOFS 128
+#define MAX_LEAF_DOFS 64
 
 namespace kern_interp {
 
@@ -50,7 +50,7 @@ struct QuadTreeNode {
   bool is_leaf,
        X_rr_is_LU_factored = false,
        compressed = false,
-       p_marked = false;
+       previously_marked = false;
   double side_length;
   QuadTreeNode* parent;
   std::vector<QuadTreeNode*> children;
@@ -73,8 +73,8 @@ struct QuadTreeNode {
 
 struct MidLevelNode {
   int partner_level;
-  bool is_third_level=false;
-
+  bool is_third_level = false;
+  bool is_orphan = false;
   bool X_rr_is_LU_factored = false, compressed = false;
   double pxy_rad;
   std::vector<QuadTreeNode*> containing_nodes;
@@ -89,7 +89,7 @@ struct MidLevelNode {
 
 struct MidLevel {
   std::vector<MidLevelNode*> nodes;
-  bool is_third_level=false;
+  bool is_third_level = false;
   ~MidLevel() {
     for (MidLevelNode* node : nodes) {
       delete node;
@@ -135,7 +135,7 @@ class QuadTree {
   void mark_neighbors_and_parents(QuadTreeNode* node);
   void perturb(const Boundary& new_boundary);
   void sort_leaves();
-
+  void handle_orphans();
   void remove_inactive_dofs_at_level(int level);
   void remove_inactive_dofs_at_all_boxes();
   void remove_inactive_dofs_at_box(QuadTreeNode* node);
