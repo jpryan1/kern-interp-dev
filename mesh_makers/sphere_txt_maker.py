@@ -40,7 +40,7 @@ if __name__ == "__main__":
     from scipy.spatial import ConvexHull
     # fig, ax = plt.subplots(figsize=(14,14))
     # ax = fig.gca(projection='3d')
-    for N in range(10, 30, 5):
+    for N in range(10, 30, 2):
     # N=150
         points = []
         for j in range(N):

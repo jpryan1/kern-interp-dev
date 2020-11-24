@@ -260,8 +260,8 @@ void Boundary::apply_boundary_condition(int start_point_idx, int end_point_idx,
                         + pow(points[3 * point_idx + 2] - 0.0, 2));
         if (r > 0.9) {
           boundary_values.set(3 * point_idx, 0, 0);
-          boundary_values.set(3 * point_idx + 1, 0, 0.0);
-          boundary_values.set(3 * point_idx + 2, 0, 1.0);
+          boundary_values.set(3 * point_idx + 1, 0, 1.0);
+          boundary_values.set(3 * point_idx + 2, 0, 0.0);
         } else {
           boundary_values.set(3 * point_idx, 0, 0);
           boundary_values.set(3 * point_idx + 1, 0, 0);
@@ -270,10 +270,18 @@ void Boundary::apply_boundary_condition(int start_point_idx, int end_point_idx,
         break;
       }
       case STOKES_PIPE_HOLES: {
-        if (points[3 * point_idx + 2] < 0 || points[3 * point_idx + 2] > 5) {
+        if (points[3 * point_idx + 2] < 0) {
+          double mag = cos((points[3 * point_idx + 2] + 1) * M_PI / 2.0);
           boundary_values.set(3 * point_idx, 0, 0);
           boundary_values.set(3 * point_idx + 1, 0, 0);
-          boundary_values.set(3 * point_idx + 2, 0, 1);
+          boundary_values.set(3 * point_idx + 2, 0, mag);
+        } else if (points[3 * point_idx + 2] > 5) {
+          double mag = cos((points[3 * point_idx + 2] - 5) * (M_PI / 2.0) +
+                           (3 * M_PI / 2.0));
+
+          boundary_values.set(3 * point_idx, 0, 0);
+          boundary_values.set(3 * point_idx + 1, 0, 0);
+          boundary_values.set(3 * point_idx + 2, 0, mag);
         } else {
           boundary_values.set(3 * point_idx, 0, 0);
           boundary_values.set(3 * point_idx + 1, 0, 0);
@@ -289,7 +297,7 @@ void Boundary::apply_boundary_condition(int start_point_idx, int end_point_idx,
           boundary_values.set(3 * point_idx, 0, 0);
           boundary_values.set(3 * point_idx + 1, 0, 1.0);
           boundary_values.set(3 * point_idx + 2, 0, 0.0);
-        } 
+        }
         break;
         // bool already_set = false;
         // for (int hole_idx = 0; hole_idx < holes.size(); hole_idx++) {

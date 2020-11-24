@@ -27,12 +27,12 @@ void get_mesh_domain_points(std::vector<double>* domain_points, double min,
       domain_points->push_back(z);
     }
   }
-} 
+}
 
 void run_ex2_pipe_w_ellipsoid_holes(bool is_stokes) {
   srand(0);
   int fact_threads = 8;
-  double id_tol = 1e-5;
+  double id_tol = 1e-3;
   std::unique_ptr<Boundary> boundary =
     std::unique_ptr<Boundary>(new PipeMesh());
   // Boundary condition is flow past noslip interior hole.
@@ -63,6 +63,16 @@ void run_ex2_pipe_w_ellipsoid_holes(bool is_stokes) {
   ki_Mat solution = boundary_integral_solve(kernel, *(boundary.get()),
                     &quadtree, id_tol, fact_threads, domain_points);
 
+
+
+
+  boundary->perturbation_parameters[0] = 0.05;
+  boundary->initialize(2, BoundaryCondition::STOKES_PIPE_HOLES);
+  kernel.update_data(boundary.get());
+  kernel.compute_diag_entries_3dstokes(boundary.get());
+  quadtree.perturb(*boundary.get());
+  solution = boundary_integral_solve(kernel, *(boundary.get()),
+                                     &quadtree, id_tol, fact_threads, domain_points);
   std::ofstream sol_out;
   sol_out.open("output/data/cross_section_sol.txt");
   for (int i = 0; i < domain_points.size(); i += 3) {
@@ -77,6 +87,13 @@ void run_ex2_pipe_w_ellipsoid_holes(bool is_stokes) {
               << std::endl;
     }
   }
+
+  QuadTree fresh;
+  fresh.initialize_tree(boundary.get(), 3,  3);
+  ki_Mat new_sol = boundary_integral_solve(kernel, *(boundary.get()), &fresh,
+                   id_tol, fact_threads, domain_points);
+  std::cout << "Err: " << (new_sol - solution).vec_two_norm() /
+            new_sol.vec_two_norm() << std::endl;
   sol_out.close();
 }
 

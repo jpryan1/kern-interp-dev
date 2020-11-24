@@ -448,42 +448,43 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
       }
     }
     ki_Mat mat(2 * outside_box.size(), active_box.size());
-    std::vector<int> update_indices;
-    update_indices.insert(update_indices.end(), node->dof_lists.active_box.begin(),
-                          node->dof_lists.active_box.end());
-    update_indices.insert(update_indices.end(), outside_box.begin(),
-                          outside_box.end());
+
     // TODO(HIF) this is inefficient! make get_update nonsymmetric
     // Note that BN has all currently deactivated DoFs removed.
-    ki_Mat update(update_indices.size(), update_indices.size());
-    if (!node->is_leaf) get_descendents_updates(&update, update_indices,
-          update_indices, node,
-          nullptr, nullptr);
+    ki_Mat update_oa(outside_box.size(), node->dof_lists.active_box.size());
+    ki_Mat update_ao(node->dof_lists.active_box.size(), outside_box.size());
+
+    if (!node->is_leaf) {
+      get_descendents_updates(&update_ao, node->dof_lists.active_box,
+                              outside_box, node, nullptr, nullptr);
+      get_descendents_updates(&update_oa, outside_box, node->dof_lists.active_box,
+                              node, nullptr, nullptr);
+    }
     mat.set_submatrix(0, outside_box.size(), 0, active_box.size(),
-                      (*this)(outside_box, active_box)
+                      (*this)(outside_box, active_box) - update_oa
                       , false, true);
     mat.set_submatrix(outside_box.size(), 2 * outside_box.size(),
                       0, active_box.size(),
-                      (*this)(active_box, outside_box)
+                      (*this)(active_box, outside_box) - update_ao
                       , true, true);
 
-    ki_Mat mat_update(mat.height(), mat.width());
-    mat_update.set_submatrix(0, outside_box.size(), 0, active_box.size(),
-                             - update(node->dof_lists.active_box.size(),
-                                      node->dof_lists.active_box.size() + outside_box.size(),
-                                      0,
-                                      node->dof_lists.active_box.size())
-                             , false, true);
-    mat_update.set_submatrix(outside_box.size(), 2 * outside_box.size(),
-                             0, active_box.size(),
-                             - update(0,
-                                      node->dof_lists.active_box.size(),
-                                      node->dof_lists.active_box.size(),
-                                      node->dof_lists.active_box.size() + outside_box.size())
-                             , true, true);
-    *rho = mat.frob_norm() / mat_update.frob_norm();
+    // ki_Mat mat_update(mat.height(), mat.width());
+    // mat_update.set_submatrix(0, outside_box.size(), 0, active_box.size(),
+    //                          - update(node->dof_lists.active_box.size(),
+    //                                   node->dof_lists.active_box.size() + outside_box.size(),
+    //                                   0,
+    //                                   node->dof_lists.active_box.size())
+    //                          , false, true);
+    // mat_update.set_submatrix(outside_box.size(), 2 * outside_box.size(),
+    //                          0, active_box.size(),
+    //                          - update(0,
+    //                                   node->dof_lists.active_box.size(),
+    //                                   node->dof_lists.active_box.size(),
+    //                                   node->dof_lists.active_box.size() + outside_box.size())
+    //                          , true, true);
+    // *rho = mat.frob_norm() / mat_update.frob_norm();
 
-    return mat + mat_update;
+    return mat;
   }
 
   // If at level 2, grab active from all on level, plus from leaves of level 1
@@ -544,21 +545,21 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
                               node, nullptr, nullptr);
     }
     mat.set_submatrix(0, outside_box.size(), 0, active_box.size(),
-                      (*this)(outside_box, active_box)
+                      (*this)(outside_box, active_box) - update_oa
                       , false, true);
     mat.set_submatrix(outside_box.size(), 2 * outside_box.size(),
                       0, active_box.size(),
-                      (*this)(active_box, outside_box)
+                      (*this)(active_box, outside_box) - update_ao
                       , true, true);
-    ki_Mat mat_update(mat.height(), mat.width());
-    mat_update.set_submatrix(0, outside_box.size(), 0, active_box.size(),
-                             - update_oa, false, true);
-    mat_update.set_submatrix(outside_box.size(), 2 * outside_box.size(),
-                             0, active_box.size(),
-                             - update_ao, true, true);
-    *rho = mat.frob_norm() / mat_update.frob_norm();
+    // ki_Mat mat_update(mat.height(), mat.width());
+    // mat_update.set_submatrix(0, outside_box.size(), 0, active_box.size(),
+    //                          - update_oa, false, true);
+    // mat_update.set_submatrix(outside_box.size(), 2 * outside_box.size(),
+    //                          0, active_box.size(),
+    //                          - update_ao, true, true);
+    // *rho = mat.frob_norm() / mat_update.frob_norm();
 
-    return mat + mat_update;
+    return mat;
   }
 
   for (int matrix_index : node->dof_lists.near) {
@@ -617,26 +618,26 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
                             node, nullptr, nullptr, nullptr);
   }
   mat.set_submatrix(0, inner_circle.size(), 0, active_box.size(),
-                    (*this)(inner_circle, active_box)
+                    (*this)(inner_circle, active_box) - update_ia
                     , false, true);
   mat.set_submatrix(inner_circle.size(), 2 * inner_circle.size(),
                     0, active_box.size(),
-                    (*this)(active_box, inner_circle)
+                    (*this)(active_box, inner_circle) - update_ai
                     , true, true);
-  
 
-  ki_Mat mat_update(mat.height(), mat.width());
-  mat_update.set_submatrix(0, inner_circle.size(), 0, active_box.size(),
-                           - update_ia, false, true);
-  mat_update.set_submatrix(inner_circle.size(), 2 * inner_circle.size(),
-                           0, active_box.size(),
-                           - update_ai, true, true);
-  *rho = mat.frob_norm() / mat_update.frob_norm();
-mat.set_submatrix(2 * inner_circle.size(),  pxy.height()
+
+  // ki_Mat mat_update(mat.height(), mat.width());
+  // mat_update.set_submatrix(0, inner_circle.size(), 0, active_box.size(),
+  //                          - update_ia, false, true);
+  // mat_update.set_submatrix(inner_circle.size(), 2 * inner_circle.size(),
+  //                          0, active_box.size(),
+  //                          - update_ai, true, true);
+  // *rho = mat.frob_norm() / mat_update.frob_norm();
+  mat.set_submatrix(2 * inner_circle.size(),  pxy.height()
                     + 2 * inner_circle.size(), 0,
                     active_box.size(),  pxy, false, true);
 
-  return mat + mat_update;
+  return mat;// + mat_update;
 }
 
 // TODO(John) the general proxy stuff is just unreadable, replace with switch
@@ -805,6 +806,24 @@ ki_Mat Kernel::forward() const {
 }
 
 
+ki_Mat Kernel::apply_forward(const ki_Mat& mu) const {
+  int tgt = solution_dimension * (domain_points.size() / domain_dimension);
+  int src = solution_dimension * (boundary_points_.size() / domain_dimension);
+
+  std::vector<int>  src_inds(src);
+  for (int j = 0; j < src; j++) src_inds[j] = j;
+
+  ki_Mat ret(tgt, 1);
+  #pragma omp parallel for num_threads(8)
+  for (int i = 0; i < tgt; i++) {
+    std::vector<int> tgt_inds(1);
+    tgt_inds[0] = i;
+    ret.set(i, 0, ((*this)(tgt_inds, src_inds, true, true)*mu).get(0, 0));
+  }
+
+  return ret;
+}
+
 // TODO(John) this is redundant code with the associated function above.
 ki_Mat Kernel::get_id_mat(const QuadTree* tree,
                           const MidLevelNode* node, double* rho) const {
@@ -871,21 +890,21 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
                                 node, nullptr, nullptr, nullptr);
 
     mat.set_submatrix(0, outside_box.size(), 0, active_box.size(),
-                      (*this)(outside_box, active_box)
+                      (*this)(outside_box, active_box) - update_oa
                       , false, true);
     mat.set_submatrix(outside_box.size(), 2 * outside_box.size(),
                       0, active_box.size(),
-                      (*this)(active_box, outside_box)
+                      (*this)(active_box, outside_box) - update_ao
                       , true, true);
 
-    ki_Mat mat_update(mat.height(), mat.width());
-    mat_update.set_submatrix(0, outside_box.size(), 0, active_box.size(),
-                             - update_oa, false, true);
-    mat_update.set_submatrix(outside_box.size(), 2 * outside_box.size(),
-                             0, active_box.size(),
-                             - update_ao, true, true);
-    *rho = mat.frob_norm() / mat_update.frob_norm();
-    return mat + mat_update;
+    // ki_Mat mat_update(mat.height(), mat.width());
+    // mat_update.set_submatrix(0, outside_box.size(), 0, active_box.size(),
+    //                          - update_oa, false, true);
+    // mat_update.set_submatrix(outside_box.size(), 2 * outside_box.size(),
+    //                          0, active_box.size(),
+    //                          - update_ao, true, true);
+    // *rho = mat.frob_norm() / mat_update.frob_norm();
+    return mat;// + mat_update;
   }
 
   for (int matrix_index : node->dof_lists.near) {
@@ -919,25 +938,25 @@ ki_Mat Kernel::get_id_mat(const QuadTree* tree,
                               node->dof_lists.active_box,
                               node, nullptr, nullptr, nullptr);
   mat.set_submatrix(0, inner_circle.size(), 0, active_box.size(),
-                    (*this)(inner_circle, active_box)
+                    (*this)(inner_circle, active_box) - update_ia
                     , false, true);
   mat.set_submatrix(inner_circle.size(), 2 * inner_circle.size(),
                     0, active_box.size(),
-                    (*this)(active_box, inner_circle)
+                    (*this)(active_box, inner_circle) - update_ai
                     , true, true);
 
-  ki_Mat mat_update(mat.height(), mat.width());
-  mat_update.set_submatrix(0, inner_circle.size(), 0, active_box.size(),
-                           - update_ia, false, true);
-  mat_update.set_submatrix(inner_circle.size(), 2 * inner_circle.size(),
-                           0, active_box.size(),
-                           - update_ai, true, true);
-  *rho = mat.frob_norm() / mat_update.frob_norm();
+  // ki_Mat mat_update(mat.height(), mat.width());
+  // mat_update.set_submatrix(0, inner_circle.size(), 0, active_box.size(),
+  //                          - update_ia, false, true);
+  // mat_update.set_submatrix(inner_circle.size(), 2 * inner_circle.size(),
+  //                          0, active_box.size(),
+  //                          - update_ai, true, true);
+  // *rho = mat.frob_norm() / mat_update.frob_norm();
 
   mat.set_submatrix(2 * inner_circle.size(),  pxy.height()
                     + 2 * inner_circle.size(), 0,
                     active_box.size(),  pxy, false, true);
-  return mat + mat_update;
+  return mat;// + mat_update;
 }
 
 }  // namespace kern_interp

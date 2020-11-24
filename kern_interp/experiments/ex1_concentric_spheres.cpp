@@ -19,7 +19,8 @@ namespace kern_interp {
 void get_mesh_domain_points(std::vector<double>* domain_points, double min,
                             double max) {
   // x val 0 everywhere, just yz plane
-  double delt = (max - min) / 100.0;
+  // double delt = (max - min) / 100.0;
+  double delt = (max - min) / 2.0;
   for (double y = min; y < max; y += delt) {
     for (double z = min; z < max; z += delt) {
       domain_points->push_back(0);
@@ -64,24 +65,19 @@ double laplace_error3d(const ki_Mat& domain,
 }
 
 
-void run_ex1_concentric_spheres(bool is_stokes) {
+void run_ex1_concentric_spheres(int num_threads, int boundary_mode) {
   srand(0);
   int fact_threads = 8;
-  double id_tol = 1e-4;
+  double id_tol = 1e-3;
   std::unique_ptr<Boundary> boundary =
     std::unique_ptr<Boundary>(new Sphere());
   // Boundary condition is flow past noslip interior hole.
-  BoundaryCondition bc =  BoundaryCondition::ELECTRON_3D;
-  int solution_dim = 1;
-  Kernel::Pde pde = Kernel::Pde::LAPLACE;
+  BoundaryCondition bc =  BoundaryCondition::STOKES_SPHERES;
+  int solution_dim = 3;
+  Kernel::Pde pde = Kernel::Pde::STOKES;
 
-  if (is_stokes) {
-    bc = BoundaryCondition::STOKES_SPHERES;
-    solution_dim = 3;
-    pde = Kernel::Pde::STOKES;
-  }
-
-  boundary->initialize(0, bc);
+  boundary->initialize(boundary_mode, bc);
+  std::cout << "boundary num points " << boundary->points.size() / 3 << std::endl;
   QuadTree quadtree;
   quadtree.initialize_tree(boundary.get(), solution_dim, 3);
   std::vector<double> old_domain_points, domain_points;
@@ -89,36 +85,34 @@ void run_ex1_concentric_spheres(bool is_stokes) {
 
   Kernel kernel(solution_dim, 3, pde, boundary.get(),
                 domain_points);
-  if (is_stokes) {
-    kernel.compute_diag_entries_3dstokes(boundary.get());
-  } else {
-    kernel.compute_diag_entries_3dlaplace(boundary.get());
-  }
-
+  kernel.compute_diag_entries_3dstokes(boundary.get());
 
   ki_Mat solution = boundary_integral_solve(kernel, *(boundary.get()),
-                    &quadtree, id_tol, fact_threads, domain_points);
-  if (!is_stokes) {
-    std::cout << "err " << laplace_error3d(solution, kernel.domain_points,
-                                           boundary.get(),
-                                           BoundaryCondition::ELECTRON_3D)
-              << std::endl;
-  }
-  std::ofstream sol_out;
-  sol_out.open("output/data/cross_section_sol.txt");
-  for (int i = 0; i < domain_points.size(); i += 3) {
-    sol_out << domain_points[i + 1] << "," <<
-            domain_points[i + 2] << ",";
+                    &quadtree, id_tol, num_threads, domain_points);
 
-    if (is_stokes) {
-      sol_out << solution.get(i + 1, 0) << "," << solution.get(i + 2, 0)
-              << std::endl;
-    } else {
-      sol_out << solution.get(i / 3, 0)
-              << std::endl;
-    }
-  }
-  sol_out.close();
+  // boundary->perturbation_parameters[0] = -0.1;
+  // boundary->initialize(boundary_mode, BoundaryCondition::STOKES_SPHERES);
+  // kernel.update_data(boundary.get());
+  // kernel.compute_diag_entries_3dstokes(boundary.get());
+  // quadtree.perturb(*boundary.get());
+  // solution = boundary_integral_solve(kernel, *(boundary.get()),
+  // &quadtree, id_tol, num_threads, domain_points);
+
+  // std::ofstream sol_out;
+  // sol_out.open("output/data/cross_section_sol.txt");
+  // for (int i = 0; i < domain_points.size(); i += 3) {
+  //   sol_out << domain_points[i + 1] << "," <<
+  //           domain_points[i + 2] << ",";
+
+  //   if (is_stokes) {
+  //     sol_out << solution.get(i + 1, 0) << "," << solution.get(i + 2, 0)
+  //             << std::endl;
+  //   } else {
+  //     sol_out << solution.get(i / 3, 0)
+  //             << std::endl;
+  //   }
+  // }
+  // sol_out.close();
 }
 
 }  // namespace kern_interp
@@ -127,6 +121,8 @@ void run_ex1_concentric_spheres(bool is_stokes) {
 int main(int argc, char** argv) {
   srand(0);
   openblas_set_num_threads(1);
-  kern_interp::run_ex1_concentric_spheres(false);
+  int num_threads = 4;
+  int boundary_mode = 0;
+  kern_interp::run_ex1_concentric_spheres(num_threads, boundary_mode);
   return 0;
 }

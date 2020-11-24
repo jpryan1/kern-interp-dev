@@ -103,8 +103,8 @@ struct Kernel {
                          double r,
                          const std::vector<int> & box_inds) const;
 
-  ki_Mat forward() const;
-
+  ki_Mat forward() const; 
+  ki_Mat apply_forward(const ki_Mat& mu) const;
   inline double boundary_normals(int i) const;
   inline double boundary_weights(int i) const;
   inline double boundary_curvatures(int i) const;

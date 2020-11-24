@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 import matplotlib.cm as cm
 
-FILENAME="cow_mesh"
+FILENAME="pipe_mesh"
 ply_lines = open("ply_files/"+FILENAME+".ply", "r").readlines()
 
 line_idx = 0

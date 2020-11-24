@@ -92,6 +92,7 @@ void CrossSectionBorder::initialize(int N, BoundaryCondition bc) {
     interpolate(true, INNER_NODES_PER_SPLINE, inner_x0_cubics, inner_x1_cubics);
     Hole hole;
     hole.center = get_hole_center(x0_inner_knots, x1_inner_knots);
+    // std::cout<<"Hole center "<<hole.center.a[0]<<" "<<hole.center.a[1]<<std::endl;
     hole.radius = get_hole_radius(x0_inner_knots, x1_inner_knots,
                                   hole.center);
     hole.num_nodes = INNER_NODES_PER_SPLINE * x0_inner_knots.size();
