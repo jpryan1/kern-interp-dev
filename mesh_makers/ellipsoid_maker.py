@@ -39,7 +39,7 @@ if __name__ == "__main__":
     from scipy.spatial import ConvexHull
     # fig, ax = plt.subplots(figsize=(14,14))
     # ax = fig.gca(projection='3d')
-    N=30
+    N=15
     points = []
     ellipticity = 0.5
     for j in range(N):

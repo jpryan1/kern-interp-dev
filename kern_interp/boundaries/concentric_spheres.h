@@ -11,7 +11,7 @@ namespace kern_interp {
 class Sphere : public Boundary {
  public:
   double r = 1.0;
-    CrossSectionBorder* cross_section_border;
+  CrossSectionBorder* cross_section_border;
 
   void initialize(int N, BoundaryCondition bc) override;
   bool is_in_domain(const PointVec& a) const override;
@@ -20,6 +20,8 @@ class Sphere : public Boundary {
   }
   void create_cross_section_border();
 
+  void order_mesh_nodes(std::vector<double>* points, double cx,
+                        double cy);
 };
 
 }  // namespace kern_interp

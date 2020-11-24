@@ -14,6 +14,6 @@ exports_files(["sphere_240_faces.txt",
       "sphere_44832_faces.txt", "sphere_48370_faces.txt", "sphere_52016_faces.txt", 
       "sphere_55802_faces.txt", "sphere_59744_faces.txt", "sphere_63810_faces.txt", 
       "sphere_67976_faces.txt", "sphere_72322_faces.txt", "sphere_76736_faces.txt", 
-      "sphere_81370_faces.txt"])
+      "sphere_81370_faces.txt","sphere_86096_faces.txt","sphere_90938_faces.txt","sphere_95944_faces.txt","sphere_101070_faces.txt",])
 
 

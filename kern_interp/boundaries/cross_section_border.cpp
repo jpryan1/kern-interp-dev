@@ -99,6 +99,13 @@ void CrossSectionBorder::initialize(int N, BoundaryCondition bc) {
     holes.push_back(hole);
   }
 
+  std::ofstream bound_out;
+  bound_out.open("output/data/cross_section_bound.txt");
+  for (int i = 0; i < points.size(); i += 2) {
+    bound_out << points[i] << "," << points[i + 1]
+              << std::endl;
+  }
+  bound_out.close();
 }
 
 

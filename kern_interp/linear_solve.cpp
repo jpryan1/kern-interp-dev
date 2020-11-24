@@ -230,7 +230,7 @@ void linear_solve(const SkelFactorization& skel_factorization,
 void schur_solve(const SkelFactorization & skel_factorization,
                  const QuadTree & quadtree, const ki_Mat & U,
                  const ki_Mat & Psi,
-                 const ki_Mat & f, const ki_Mat & K_domain,
+                 const ki_Mat & f, const Kernel& kernel,
                  const ki_Mat & U_forward,  ki_Mat * solution) {
   ki_Mat mu(f.height(), 1);
   if (U.width() == 0) {
@@ -238,14 +238,18 @@ void schur_solve(const SkelFactorization & skel_factorization,
     linear_solve(skel_factorization, quadtree, f, &mu);
     double end = omp_get_wtime();
     std::cout << "solve time " << end - start << std::endl;
-    *solution = K_domain * mu;
+    *solution = kernel.apply_forward(mu);
   } else {
     ki_Mat alpha;
     double start = omp_get_wtime();
     linear_solve(skel_factorization, quadtree, f, &mu, &alpha);
     double end = omp_get_wtime();
     std::cout << "solve time " << end - start << std::endl;
-    *solution = (K_domain * mu) + (U_forward * alpha);
+    double app_s = omp_get_wtime();
+    *solution = (kernel.apply_forward(mu)) + (U_forward * alpha);
+    // *solution = (kernel.forward()*(mu)) + (U_forward * alpha);
+    double app_e = omp_get_wtime();
+    std::cout << "Apply time " << app_e - app_s << std::endl;
   }
 }
 
@@ -257,7 +261,6 @@ ki_Mat boundary_integral_solve(const Kernel& kernel, const Boundary& boundary,
   // Consider making init instead of constructor for readability
   SkelFactorization skel_factorization(id_tol, fact_threads);
 
-  ki_Mat K_domain = kernel.forward();
   ki_Mat f = boundary.boundary_values;
   ki_Mat U = initialize_U_mat(kernel.pde, boundary.holes, boundary.points,
                               kernel.domain_dimension);
@@ -275,7 +278,8 @@ ki_Mat boundary_integral_solve(const Kernel& kernel, const Boundary& boundary,
   double end = omp_get_wtime();
   std::cout  << "skel time " << end - start << std::endl;
 
-  schur_solve(skel_factorization, *quadtree, U, Psi, f, K_domain,
+
+  schur_solve(skel_factorization, *quadtree, U, Psi, f, kernel,
               U_forward, &domain_solution);
 
 

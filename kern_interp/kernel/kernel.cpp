@@ -806,6 +806,24 @@ ki_Mat Kernel::forward() const {
 }
 
 
+ki_Mat Kernel::apply_forward(const ki_Mat& mu) const {
+  int tgt = solution_dimension * (domain_points.size() / domain_dimension);
+  int src = solution_dimension * (boundary_points_.size() / domain_dimension);
+
+  std::vector<int>  src_inds(src);
+  for (int j = 0; j < src; j++) src_inds[j] = j;
+
+  ki_Mat ret(tgt, 1);
+  #pragma omp parallel for num_threads(8)
+  for (int i = 0; i < tgt; i++) {
+    std::vector<int> tgt_inds(1);
+    tgt_inds[0] = i;
+    ret.set(i, 0, ((*this)(tgt_inds, src_inds, true, true)*mu).get(0, 0));
+  }
+
+  return ret;
+}
+
 // TODO(John) this is redundant code with the associated function above.
 ki_Mat Kernel::get_id_mat(const QuadTree* tree,
                           const MidLevelNode* node, double* rho) const {

@@ -43,7 +43,7 @@ if __name__ == "__main__":
     points = []
     cyl_height = 5
     height_disc = 100
-    for j in range(int(N/2)):
+    for j in range(int(N/2)-1):
         jflt = float(j)/(N-1)
         sz = bumpfun(jflt, 2*N) #1 to 41 to 1
         phi = jflt*np.pi
@@ -56,10 +56,10 @@ if __name__ == "__main__":
             points.append(  [np.cos(theta)*np.sin(phi), np.sin(theta)*np.sin(phi), cyl_height+np.cos(phi)])
 
 
-    for height in range(height_disc):
+    for height in range(-1,1+height_disc):
         #param 0 to 1 in range
         height_param = 1-(height/float(height_disc-1))
-        bulge_param = 1 + 0.001*(np.sin((np.pi/4.)+height_param*(np.pi/2.0))-np.sqrt(2)/2.)
+        bulge_param = 1 + 0.01*(np.sin((np.pi/4.)+height_param*(np.pi/2.0))-np.sqrt(2)/2.)
         jflt = int(N/2)/float(N-1)
         sz = bumpfun(jflt, 2*N)
         for i in range(sz):
