@@ -248,8 +248,8 @@ void schur_solve(const SkelFactorization & skel_factorization,
     double app_s = omp_get_wtime();
     *solution = (kernel.apply_forward(mu)) + (U_forward * alpha);
     // *solution = (kernel.forward()*(mu)) + (U_forward * alpha);
-    double app_e = omp_get_wtime();
-    std::cout << "Apply time " << app_e - app_s << std::endl;
+    // double app_e = omp_get_wtime();
+    // std::cout << "Apply time " << app_e - app_s << std::endl;
   }
 }
 
